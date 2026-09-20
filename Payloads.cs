@@ -649,17 +649,20 @@ internal static class Payloads
     public static readonly (string Stock, string Corrected, int Count)[] JupiterCloudEdits =
     {
         // lower deck: -4..216 km -> -25..+15 km (meets the raised main deck)
-        // Lower deck: -4..216 km -> -32..+8 km, 7 km below the main deck's base. Stock
-        // separates the decks (216 against 220), and closing that gap in the rescale put
-        // this deck's flat top exactly where the vortices bottom out. Its top
+        // Lower deck: -4..216 km -> -1..+12 km, 3 km below the main deck's base. Stock
+        // separates the decks (216 against 220) and keeps this one almost entirely above
+        // the mesh at 0 km, the 1-bar level. Shifting it down instead of scaling its
+        // height buried most of it, leaving only the fading top of its density curve
+        // visible: the vortices then bottomed out on shadowed atmosphere rather than on
+        // cloud. Thickness 40 -> 13 km, so densities rise to hold the optical depth. Its top
         // is also brightened: shadowed from above and lit by a thin atmosphere, it read as
         // a flat black floor. Thickness is unchanged, so the density and optical depth
         // still hold. Height, density and brightness travel together because every anchor
         // is matched against the pristine span.
         ("<StartAltitude M=\"-4000\" />\n                        <Height M=\"220000\" />\n                        <Density Value=\"0.0002800000074785203\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.9700000286102295\" />\n                        <MultipleScatteringBrightness Value=\"1\" />",
-         "<StartAltitude M=\"-32000\" />\n                        <Height M=\"40000\" />\n                        <Density Value=\"0.00154\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.9700000286102295\" />\n                        <MultipleScatteringBrightness Value=\"3.0\" />", 1),
+         "<StartAltitude M=\"-1000\" />\n                        <Height M=\"13000\" />\n                        <Density Value=\"0.0047\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.9700000286102295\" />\n                        <MultipleScatteringBrightness Value=\"3.0\" />", 1),
         ("<StartAltitude M=\"-4000\" />\n                        <Height M=\"220000\" />\n                        <Density Value=\"0.0007999999797903001\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1\" />",
-         "<StartAltitude M=\"-32000\" />\n                        <Height M=\"40000\" />\n                        <Density Value=\"0.0044\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"3.0\" />", 1),
+         "<StartAltitude M=\"-1000\" />\n                        <Height M=\"13000\" />\n                        <Density Value=\"0.0136\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"3.0\" />", 1),
         // main deck: base 220 km -> 15 km (raised so vortex roots clear the
         // mesh - black spots fix); heights /5.73 (towers ~20% taller than the
         // x2 cut, tops ~111 km), densities scaled inversely
@@ -692,7 +695,7 @@ internal static class Payloads
         // Must stay after the per-type edits above: those carry the stock NoiseScale
         // through untouched, so the counts here still match.
         ("<NoiseScale M=\"420000\" />",    "<NoiseScale M=\"73000\" />",     4),
-        ("<NoiseScale M=\"120000\" />",    "<NoiseScale M=\"22000\" />",     2),
+        ("<NoiseScale M=\"120000\" />",    "<NoiseScale M=\"7000\" />",     2),
         // 2D billboards (user-tuned): JupiterClouds 0.95 (its 2D block is the
         // one with a FlowMap - unique discriminator), JupiterLowerClouds 1.
         // Order matters: the specific edit must run before the generic one;
