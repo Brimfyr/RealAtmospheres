@@ -452,8 +452,8 @@ internal static class Payloads
                         </CloudShape>
                     </CloudType>
 
-                    <!-- Types 1-3 give the deck vertical variety. They top out BELOW the deck, the
-                         way Jupiter's storm types do, so vortices read as pits in it and the
+                    <!-- A second type gives the deck vertical variety without storms: it tops
+                         out below the deck, so belts read as gentle depressions in it, and the
                          layer's top (where the 2D billboard hangs) does not move. The shader picks a type from
                          the detail tile's green channel, blended by our mask's red channel
                          (GetCoverageAndCloudType in CloudFunctions.glsl), so most of the planet
@@ -473,42 +473,6 @@ internal static class Payloads
                                 <SplinePoint><Key Value="0.45"/><Value Value="0.9"/><InTangent Value="-0.4"/><OutTangent Value="-0.4"/></SplinePoint>
                                 <SplinePoint><Key Value="0.75"/><Value Value="0.4"/><InTangent Value="-1.8"/><OutTangent Value="-1.8"/></SplinePoint>
                                 <SplinePoint><Key Value="1.0"/><Value Value="0.0"/><InTangent Value="-2.0"/><OutTangent Value="-2.0"/></SplinePoint>
-                            </ShapeCurve>
-                        </CloudShape>
-                    </CloudType>
-                    <CloudType Name="GiantStormEdge">
-                        <StartAltitude M="5000" />
-                        <Height M="{HEIGHT_STORM}" />
-                        <Density Value="0.00035" />
-                        <NoiseScale M="140000" />
-                        <EdgeSharpness Value="0.0" />
-                        <MultipleScatteringBrightness Value="1" />
-                        <!-- anvil: thin at the base, broad plateau aloft, like Jupiter's StormEdge -->
-                        <CloudShape InterpolateShapes="true">
-                            <ShapeCurve>
-                                <SplinePoint><Key Value="0.0"/><Value Value="0.0"/><InTangent Value="0.8"/><OutTangent Value="0.8"/></SplinePoint>
-                                <SplinePoint><Key Value="0.35"/><Value Value="0.55"/><InTangent Value="1.6"/><OutTangent Value="1.6"/></SplinePoint>
-                                <SplinePoint><Key Value="0.62"/><Value Value="1.0"/><InTangent Value="0.0"/><OutTangent Value="0.0"/></SplinePoint>
-                                <SplinePoint><Key Value="0.88"/><Value Value="0.85"/><InTangent Value="-0.8"/><OutTangent Value="-0.8"/></SplinePoint>
-                                <SplinePoint><Key Value="1.0"/><Value Value="0.0"/><InTangent Value="-3.0"/><OutTangent Value="-3.0"/></SplinePoint>
-                            </ShapeCurve>
-                        </CloudShape>
-                    </CloudType>
-                    <CloudType Name="GiantStormCenter">
-                        <StartAltitude M="5000" />
-                        <Height M="{HEIGHT_CORE}" />
-                        <Density Value="0.0016" />
-                        <NoiseScale M="170000" />
-                        <EdgeSharpness Value="0.97" />
-                        <MultipleScatteringBrightness Value="2.0" />
-                        <!-- vortex core: roots below the deck, tower punching well above it -->
-                        <CloudShape InterpolateShapes="true">
-                            <ShapeCurve>
-                                <SplinePoint><Key Value="0.0"/><Value Value="0.7"/><InTangent Value="1.2"/><OutTangent Value="1.2"/></SplinePoint>
-                                <SplinePoint><Key Value="0.25"/><Value Value="1.0"/><InTangent Value="0.0"/><OutTangent Value="0.0"/></SplinePoint>
-                                <SplinePoint><Key Value="0.65"/><Value Value="0.95"/><InTangent Value="-0.3"/><OutTangent Value="-0.3"/></SplinePoint>
-                                <SplinePoint><Key Value="0.88"/><Value Value="0.5"/><InTangent Value="-2.2"/><OutTangent Value="-2.2"/></SplinePoint>
-                                <SplinePoint><Key Value="1.0"/><Value Value="0.0"/><InTangent Value="-3.5"/><OutTangent Value="-3.5"/></SplinePoint>
                             </ShapeCurve>
                         </CloudShape>
                     </CloudType>
