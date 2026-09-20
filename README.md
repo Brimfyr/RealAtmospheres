@@ -185,7 +185,7 @@ flowmaps by the scripts in this repo.
 
 | Source | By | Shipped files derived from it |
 |---|---|---|
-| Mars cloud map | HMSMaidNelson | `MarsCirrusMaskVolumetric.dds`, `MarsCirrusMask2D.png` |
+| Mars cloud map | SpaceEngine | `MarsCirrusMaskVolumetric.dds`, `MarsCirrusMask2D.png` |
 | Saturn texture map | JCP-JohnCarlo | `SaturnDiffuse.ktx2`, `SaturnCloudsMask.dds`, `SaturnFlowmap.dds` |
 | Uranus texture map | Askaniy | `UranusDiffuse.ktx2`, `UranusCloudsMask.dds`, `UranusFlowmap.dds` |
 | Neptune texture map | Askaniy | `NeptuneDiffuse.ktx2`, `NeptuneCloudsMask.dds`, `NeptuneFlowmap.dds` |
@@ -194,3 +194,7 @@ flowmaps by the scripts in this repo.
 
 `MarsDustPhaseLut.glsl` is computed by `make_mars_phase_lut.py` (Mie scattering), not derived from any
 image. Jupiter uses the game's own textures.
+
+The Mars, Titan and Triton masks come from our own SpaceEngine PRO exports, which carry a required credit
+line: *Produced in part with SpaceEngine PRO © Cosmographic Software LLC*. `CREDITS.md` records the origin
+and terms of every shipped file.
