@@ -1,13 +1,13 @@
 # Build Real Atmospheres and produce an installable zip for players.
 #
-#   .\package.ps1                         # version 1.0.0, game build read from your settings.toml
+#   .\package.ps1                         # version 1.0.1, game build read from your settings.toml
 #   .\package.ps1 -Version 1.1.0 -GameBuild v2026.9.7.5402
 #
 # Output: dist\RealAtmospheres-v<Version>-ksa<GameBuild>.zip (+ .sha256). The zip's root is a
 # RealAtmospheres\ folder, because KSA uses the folder name as the mod id. Ships exactly the files in
 # release-files.txt; StarMap.API/0Harmony are NOT included (the StarMap launcher provides them).
 param(
-    [string]$Version = "1.0.0",
+    [string]$Version = "1.0.1",
     [string]$GameBuild = ""
 )
 $ErrorActionPreference = "Stop"
@@ -53,6 +53,8 @@ New-Item -ItemType Directory -Force (Join-Path $stage "assets") | Out-Null
 Copy-Item "$proj\bin\Release\RealAtmospheres.dll" $stage
 Copy-Item "$proj\mod.toml" $stage
 Copy-Item "$proj\README.md" $stage
+Copy-Item "$proj\LICENSE" $stage
+Copy-Item "$proj\CREDITS.md" $stage   # CC BY / BY-NC-SA require the notice to travel with the files
 foreach ($name in $assets) {
     $src = Join-Path "$proj\assets" $name
     if (-not (Test-Path $src)) { throw "release asset missing: assets\$name" }
