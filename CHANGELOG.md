@@ -24,8 +24,7 @@ colour maps, cleans up what Jupiter's rescale left behind, and adds mod manager 
   percentiles clamped everything brighter flat; the window widens to the 1st and 99.5th and drops off the
   ceiling where a column fills completely.
 - Volumetric clouds fade into their 2D billboards much further out: stock's 5000-9000 km band is restored
-  on Jupiter, with the same fractions of radius for the giants. The holes at Jupiter's vortex centres are
-  stock behaviour, present with the mod disabled, so nothing here chases them.
+  on Jupiter, with the same fractions of radius for the giants.
 - Jupiter's lower deck sits above the planet mesh again. The rescale to real altitudes shifted it down
   rather than scaling its height, burying 62% of it; it now spans -1..+12 km, 3 km clear of the main deck,
   at a density that holds the optical depth.
