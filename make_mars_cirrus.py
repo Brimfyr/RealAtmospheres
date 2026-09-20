@@ -1,12 +1,28 @@
 # -*- coding: utf-8 -*-
-"""Build the Mars high-altitude cirrus textures from Mars_Upper_Clouds.png.
+"""Build the Mars high-altitude cirrus textures from our own SpaceEngine PRO export.
+
+Source: mars_upper_clouds_se_export.png, exported from SpaceEngine PRO with the
+procedural-texture option OFF (with it on, the exporter writes procedural stand-ins
+instead of the real Solar System maps). Distributing derivatives of our own export is
+what the PRO EULA allows; see CREDITS.md.
 
 Conventions (hard-won in the Proxima ice-cloud saga): the layer's textures must
 match the body's FIRST cloud layer type -> DXT5 equirect with coverage in ALPHA
 (volumetric) and RGBA white+alpha PNG (2D). Coverage is scaled faint (the alpha
 IS the opacity), edges pre-blurred, bilinear downscale (no ringing).
 
-Outputs into Mars Test/assets/ (kept for post-update redeploys).
+Two corrections bring this export in line with the masks shipped in 1.0.0, which were
+built from a third-party re-upload we can no longer use:
+
+  ROLL_DEG   the export sits 89.1 deg east of that map (measured by detrended
+             longitude cross-correlation, a sharp peak). Rolling back keeps the
+             clouds where they have always been in-game. Set to 0.0 to keep
+             SpaceEngine's own alignment instead.
+  TONE_*     the export has a lifted background (median luminance 0.42 against
+             0.07), so a scale or gamma cannot match it. These knots are the
+             quantile mapping onto the shipped mask's own tone curve, which
+             reproduces its opacity distribution (mean alpha 0.062 either way).
+
 Tuning knobs: ALPHA_SCALE (master opacity), GAMMA (patch-vs-hood balance), BLUR.
 """
 import os, subprocess
@@ -15,19 +31,30 @@ from PIL import Image, ImageFilter
 
 Image.MAX_IMAGE_PIXELS = None
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, "Mars_Upper_Clouds.png")
 OUT = os.path.join(HERE, "assets")
+SRC = os.path.join(OUT, "mars_upper_clouds_se_export.png")
 NVTT = r"C:\Program Files\NVIDIA Corporation\NVIDIA Texture Tools\nvtt_export.exe"
 os.makedirs(OUT, exist_ok=True)
 
 ALPHA_SCALE_2D = 0.24   # 2D billboard opacity (hoods ~0.20)
 ALPHA_SCALE_VOL = 0.70  # volumetric coverage (fill = this + shape - 1 -> wider footprint)
 GAMMA = 1.1            # >1 suppresses the dim equatorial patches slightly vs hoods
-BLUR = 4               # px at source res: soft edges (no hard rims)
+BLUR_FRAC = 4.0 / 8192  # soft edges, as a fraction of width so it survives a resolution change
+ROLL_DEG = 89.12       # align this export to the orientation shipped in 1.0.0
+
+# Quantile mapping from this export's luminance onto the shipped mask's tone.
+TONE_IN = np.linspace(0.0, 1.0, 17)
+TONE_OUT = np.array([0.0000, 0.0446, 0.0446, 0.0446, 0.0446, 0.0645, 0.0645, 0.0645,
+                     0.0645, 0.0838, 0.1026, 0.1573, 0.3618, 0.5230, 0.6639, 0.7561,
+                     1.0000], np.float32)   # top knot pinned to 1.0 to keep peak opacity
 
 src = Image.open(SRC).convert("L")
-src = src.filter(ImageFilter.GaussianBlur(radius=BLUR))
+blur = max(1.0, BLUR_FRAC * src.size[0])
+src = src.filter(ImageFilter.GaussianBlur(radius=blur))
 luma = np.asarray(src, np.float32) / 255.0
+luma = np.roll(luma, int(round(ROLL_DEG / 360.0 * luma.shape[1])), axis=1)
+luma = np.interp(luma, TONE_IN, TONE_OUT).astype(np.float32)
+
 alpha_2d = np.clip((luma ** GAMMA) * ALPHA_SCALE_2D, 0.0, 1.0)
 alpha_vol = np.clip((luma ** GAMMA) * ALPHA_SCALE_VOL, 0.0, 1.0)
 
@@ -49,5 +76,6 @@ os.remove(tmp)
 # 2D mask: plain RGBA png
 write_rgba(alpha_2d, 2048, 1024, os.path.join(OUT, "MarsCirrusMask2D.png"))
 
-print(f"built: 2D hoods ~{np.percentile(alpha_2d, 99):.2f} opacity; "
+print(f"built from {os.path.basename(SRC)} ({src.size[0]}x{src.size[1]}, blur {blur:.1f}px, "
+      f"roll {ROLL_DEG:.2f} deg): 2D hoods ~{np.percentile(alpha_2d, 99):.2f} opacity; "
       f"volumetric coverage max {alpha_vol.max():.2f}")
