@@ -111,11 +111,6 @@ shaders can stop them compiling, so check the release's tested game build.
   treatment on its thinner forward-scattering haze.
 - **Triton's condensate clouds**: patchy N₂-ice wisps at 4–6.5 km.
 
-### All bodies
-
-- **2D cloud terminator fade**: smooth day/night rolloff for unshaded 2D cloud
-  layers instead of the knife-edge transmittance-LUT cutoff.
-
 ## Install
 
 Requires [StarMap](https://github.com/StarMapLoader/StarMap). Each release zip is
