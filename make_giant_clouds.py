@@ -44,7 +44,9 @@ NVTT = r"C:\Program Files\NVIDIA Corporation\NVIDIA Texture Tools\nvtt_export.ex
 W, H = 4096, 2048
 # coverage range: gas giants are fully clouded, so keep a high floor with band
 # variation. fill = coverage + shape - 1, so this is deliberately generous.
-LO, HI = 0.45, 0.9
+# Fill is coverage + shape - 1, so a ceiling near 1 fills the whole column and the
+# noise can no longer carve it: the brightest bands go smooth. 0.78 keeps structure.
+LO, HI = 0.45, 0.78
 
 STORM_SHEAR = 0.85     # weight of the jet-shear cue
 STORM_SPOT = 0.60      # weight of the discrete-feature cue
@@ -73,32 +75,47 @@ DETAIL_BETA = 2.1      # spectral slope: higher = smoother, fewer small features
 # choose except on Neptune, where they match the features in its own map.
 VORTICES = {
     "Saturn": [
-        ("north polar hexagon and cyclone", 78.0,  20.0, 34.0,  7.0, 0.85, 0.05),
-        ("south polar vortex",             -87.0,  0.0, 70.0,  4.0, 0.85, 0.05),
-        ("Great White Spot (2010-11)",      35.0, 140.0, 46.0,  6.0, 0.70, 0.07),
-        ("string of pearls",                40.0, 255.0, 24.0,  3.0, 0.45, 0.03),
+        ("north polar hexagon and cyclone", 78.0,  20.0, 34.0,  7.0, 0.85, 0.35),
+        ("south polar vortex",             -87.0,  0.0, 70.0,  4.0, 0.85, 0.35),
+        ("Great White Spot (2010-11)",      35.0, 140.0, 46.0,  6.0, 0.70, 0.25),
+        ("string of pearls",                40.0, 255.0, 24.0,  3.0, 0.45, 0.20),
     ],
     "Uranus": [
         # Nearly featureless in visible light; the 2006 dark spot is the exception.
-        ("Uranus Dark Spot (2006)",         27.0, 200.0, 11.0,  5.5, 0.60, 0.09),
+        ("Uranus Dark Spot (2006)",         27.0, 200.0, 11.0,  5.5, 0.60, 0.30),
     ],
     "Neptune": [
-        ("Great Dark Spot (Voyager 2)",    -20.0, 149.0, 18.0,  9.0, 1.00, 0.15),
-        ("Dark Spot 2",                    -56.0, 252.0, 10.0,  6.0, 0.70, 0.10),
+        ("Great Dark Spot (Voyager 2)",    -20.0, 149.0, 18.0,  9.0, 1.00, 0.55),
+        ("Dark Spot 2",                    -56.0, 252.0, 10.0,  6.0, 0.70, 0.40),
+    ],
+}
+
+# Bright methane clouds ride alongside Neptune's dark spots, which is how Voyager
+# found them. Same shape, raising coverage instead of clearing it.
+COMPANIONS = {
+    "Neptune": [
+        ("Great Dark Spot companion", -27.0, 143.0, 10.0, 4.0, 0.30),
+        ("Scooter",                   -42.0, 190.0, 12.0, 4.5, 0.25),
     ],
 }
 
 def place_vortices(body, storm, cov, w, h):
-    """Raise storminess and dip coverage over each documented vortex."""
+    """Clear the deck over each documented vortex and raise the storm cloud types;
+    then lay any bright companion clouds alongside."""
     lon = (np.arange(w) + 0.5) / w * 360.0
     lat = 90.0 - (np.arange(h) + 0.5) / h * 180.0
-    for name, vlat, vlon, rx, ry, strength, dip in VORTICES.get(body, []):
+    def falloff(vlat, vlon, rx, ry):
         dlon = (lon[None, :] - vlon + 180.0) % 360.0 - 180.0      # wrap east-west
-        dlat = lat[:, None] - vlat
-        fall = np.exp(-((dlon / rx) ** 2 + (dlat / ry) ** 2))
+        return np.exp(-((dlon / rx) ** 2 + (lat[:, None] - vlat) ** 2 / ry ** 2))
+    for name, vlat, vlon, rx, ry, strength, dip in VORTICES.get(body, []):
+        fall = falloff(vlat, vlon, rx, ry)
         storm = np.maximum(storm, strength * fall)
         cov = cov * (1.0 - dip * fall)
-        print(f"     {name}: lat {vlat:+.0f}, lon {vlon:.0f}, storminess {strength:.2f}")
+        print(f"     {name}: lat {vlat:+.0f}, lon {vlon:.0f}, clears {dip*100:.0f}% of the deck")
+    for name, vlat, vlon, rx, ry, lift in COMPANIONS.get(body, []):
+        fall = falloff(vlat, vlon, rx, ry)
+        cov = np.clip(cov + lift * fall, 0.0, 1.0)
+        print(f"     {name}: lat {vlat:+.0f}, lon {vlon:.0f}, brightens by {lift*100:.0f}%")
     return storm, cov
 
 JOBS = [

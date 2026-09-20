@@ -30,13 +30,20 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   these maps hold little discrete structure, so documented features are now placed at their
   observed latitudes: Neptune's Great Dark Spot and Dark Spot 2 (Voyager 2, 1989), Saturn's north
   polar hexagon and cyclone, its south polar vortex, the 2010-11 Great White Spot and the string
-  of pearls, and the single dark spot Uranus showed in 2006. Each raises the storm cloud types and
-  dips coverage slightly, so it reads as a depression in the deck. Neptune's coordinates match the
+  of pearls, and the single dark spot Uranus showed in 2006. Each clears part of the deck as well
+  as raising the storm cloud types, because a vortex thousands of km across but only tens deep
+  cannot be seen by shape alone; Neptune's dark spots also carry the bright companion clouds that
+  travel with them. Neptune's coordinates match the
   features in its own map and the ones its flowmap already swirls.
-- Uranus's clouds no longer shear apart up close. Eddy strength was a constant while displacement
-  is per planet, and Uranus needs the largest (18000 km) because its faint bands give it little
-  zonal flow, so its eddies drifted nearly 3x as far as Saturn's. Eddy terms now scale so every
-  planet drifts them about 1000 km per loop; the zonal jets keep their calibrated wind speeds.
+- Uranus's clouds no longer shear apart up close. Flow displacement had been set from each
+  planet's wind speed alone, which drove it to 146x the cloud noise scale on Uranus (Jupiter runs
+  about 10x). At that ratio the two advection phases decorrelate and comb the deck. Since speed is
+  displacement divided by loop duration, displacement is now pinned near 10x the noise on all
+  three and the loop carries the real peak jets instead: Saturn and Neptune 450 m/s, Uranus 200.
+  Eddy strengths are also normalised so every planet drifts them about the same distance.
+- Neptune's brightest bands keep their structure. Coverage there reached the 0.9 ceiling, and
+  since fill is coverage plus shape minus one, the column filled solid and the noise could no
+  longer carve it, leaving those bands smooth. The ceiling is now 0.78.
 - Volumetric clouds fade into their 2D billboards much further out. The rescale had pulled
   Jupiter's fade band in from 5000-9000 km to 700-1300, which made the swap obvious; stock's band
   is restored, and the giants now use the same fractions of their own radii (Saturn 4200-7500 km,

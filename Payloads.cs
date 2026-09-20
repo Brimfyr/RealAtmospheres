@@ -418,7 +418,7 @@ internal static class Payloads
                     <VolumetricsFlowMap>
                         {VOLFLOWTEX}
                         <Displacement Km="{DISP}"/> <!-- per-planet, calibrated to real peak zonal winds -->
-                        <LoopDuration Hours="1.0"/>
+                        <LoopDuration Hours="{LOOP}"/>
                     </VolumetricsFlowMap>
                     <VolumetricsColorMap Id="{BODY}_Diffuse"/>
                     <Raymarching>
@@ -537,7 +537,7 @@ internal static class Payloads
                             <Manifest><MaxSize>0</MaxSize><MipMaps>true</MipMaps></Manifest>
                         </Texture>
                         <Displacement Km="{DISP}"/> <!-- per-planet, calibrated to real peak zonal winds -->
-                        <LoopDuration Hours="1.0"/>
+                        <LoopDuration Hours="{LOOP}"/>
                     </FlowMap>
 """;
 

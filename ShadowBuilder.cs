@@ -162,17 +162,26 @@ internal static class ShadowBuilder
         }
         ae += "</Atmosphere>".Length;
         bool hasFlow = File.Exists(Path.Combine(assetsDir, $"{body}Flowmap.dds"));
-        // Flow displacement calibrated to real peak zonal winds: velocity =
-        // flowValue_peak x Disp / LoopDuration(1h). flowValue_peak = 2x the map's
-        // zonal deviation (Saturn 0.26, Uranus 0.04, Neptune 0.18). Targets:
-        // Saturn 450, Uranus 200, Neptune 450 m/s (real peak jets).
-        string disp = body switch
+        // Velocity = flow peak x Displacement / LoopDuration, so the pair can move
+        // together at constant wind. What matters visually is displacement against the
+        // cloud noise scale: Jupiter advects ~770 km with 73 km noise, about 10x, while
+        // ours had run to 146x on Uranus, which decorrelates the two advection phases
+        // and combs the deck. Displacement is pinned near that ratio and the loop
+        // carries each planet's real peak jet instead (Saturn and Neptune ~450 m/s,
+        // Uranus ~200). The flowmaps are normalised to +-0.45, doubled by the shader.
+        const double flowPeak = 0.9;
+        const double dispKm = 700.0;
+        double peakJetMs = body switch
         {
-            "Saturn"  => "6200.0",   // 450 m/s / 0.26
-            "Uranus"  => "18000.0",  // 200 m/s / 0.04
-            "Neptune" => "9000.0",   // 450 m/s / 0.18
-            _         => "9000.0"
+            "Saturn"  => 450.0,
+            "Uranus"  => 200.0,
+            "Neptune" => 450.0,
+            _         => 300.0
         };
+        double loopHours = flowPeak * dispKm * 1000.0 / peakJetMs / 3600.0;
+        string disp = dispKm.ToString("0");
+        string loop = loopHours.ToString("0.###");
+
         // Volumetric-to-2D fade band, as fractions of each planet's radius matching
         // stock Jupiter's (7.2% and 12.9%). Fading closer in makes the swap obvious.
         var (transStart, transEnd) = body switch
@@ -182,10 +191,12 @@ internal static class ShadowBuilder
             "Neptune" => (1800, 3200),
             _         => (1800, 3300)
         };
+
         string block = Payloads.GiantCloudsTemplate
             .Replace("{FLOWMAP}", hasFlow ? Payloads.GiantFlowMapTemplate : "")
             .Replace("{VOLFLOWTEX}", hasFlow ? Payloads.GiantVolFlowTexPerPlanet : Payloads.GiantVolFlowTexJupiter)
             .Replace("{DISP}", disp)
+            .Replace("{LOOP}", loop)
             .Replace("{TRANSSTART}", transStart.ToString())
             .Replace("{TRANSEND}", transEnd.ToString())
             .Replace("{FLICKER}", (transEnd * 11 / 10).ToString())
@@ -197,7 +208,7 @@ internal static class ShadowBuilder
             .Replace("{HEIGHT_EDGE}", (towerHeightM * 4 / 5).ToString())
             .Replace("{HEIGHT_STORM}", (towerHeightM * 11 / 20).ToString())
             .Replace("{HEIGHT_CORE}", (towerHeightM * 3 / 10).ToString());
-        Log($"{body} volumetric clouds added{(hasFlow ? $" + per-planet flowmap (2D + volumetric), disp {disp}km" : "")}");
+        Log($"{body} volumetric clouds added{(hasFlow ? $" + per-planet flowmap (2D + volumetric), disp {disp}km, loop {loop}h ({peakJetMs:0} m/s jets)" : "")}");
         return content[..ae] + block + content[ae..];
     }
 

@@ -38,6 +38,8 @@ GTURB_AMP = 0.02           # tiny vertical turbulence in G
 # advect is amplitude x displacement: without scaling, Uranus's 18000 km carries its
 # eddies nearly 3x as far as Saturn's and shears the deck apart up close.
 DISPLACEMENT_KM = {"SaturnFlowmap": 6200.0, "UranusFlowmap": 18000.0, "NeptuneFlowmap": 9000.0}
+FLOW_PEAK = 0.45            # normalise every planet's field to this, so the 8-bit
+                            # flowmap spends all of its range on the flow that exists
 EDDY_TRAVEL_KM = 1000.0     # how far eddies should drift per loop on every planet
                             # (Saturn already sits at this, so it is the reference and
                             #  only the planets with larger displacements come down)
@@ -126,6 +128,17 @@ for src_name, out_base, storms in JOBS:
     for u, v, rx, ry, amp, rot in storms:
         R, G = add_storm(R, G, u * W, v * H, rx, ry, amp, rot)
 
+
+    # Normalise the deviation to FLOW_PEAK and divide displacement by the same
+    # factor: identical wind speeds, but the 8-bit texture now resolves them.
+    # ShadowBuilder carries the displacement values this prints.
+    devR, devG = R - 0.5, G - 0.5
+    peak = max(float(np.abs(devR).max()), float(np.abs(devG).max()), 1e-6)
+    norm = FLOW_PEAK / peak
+    R, G = 0.5 + devR * norm, 0.5 + devG * norm
+    print(f"  {out_base}: peak {peak:.3f} -> {FLOW_PEAK}, so displacement "
+          f"{DISPLACEMENT_KM[out_base]:.0f} -> {DISPLACEMENT_KM[out_base] / norm:.0f} km "
+          f"({peak * 255:.0f} -> {FLOW_PEAK * 255:.0f} levels of the texture)")
     R = np.clip(R, 0.0, 1.0); G = np.clip(G, 0.0, 1.0)
     B = np.zeros((H, W), np.float32)
     rgb = (np.stack([R, G, B], axis=2) * 255).astype(np.uint8)
