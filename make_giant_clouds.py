@@ -7,30 +7,25 @@ Core/Shaders/Clouds/CloudFunctions.glsl):
 
   ALPHA  coverage. The volumetric layer then samples the planet's own Diffuse
          cubemap for COLOUR (VolumetricsColorMap), exactly like Jupiter.
-  RED    the detail-tile selector. The shader blends the detail texture's two
-         tiles with it, `mix(detailMaps.rg, detailMaps.ba, thisRedChannel)`, and
-         takes the cloud TYPE from the green channel of the result. Writing a flat
-         1.0 here (as the first version did) pins every pixel to one tile and one
-         type, which is why those decks came out uniform.
+  RED    the cloud TYPE, which is what sets how high a column builds. The shader
+         blends the detail texture's two tiles with it and takes the type from the
+         green channel of the result, `mix(detailMaps.rg, detailMaps.ba,
+         thisRedChannel).g`. Our tile carries a flat pair (see below), so the blend
+         is this channel alone: 0 is the tall deck type, 1 the low one.
 
-This script also writes the detail texture itself, GiantCloudDetail.dds. Borrowing
-Jupiter's lower-deck detail put sparse spikes in its type channel, and since the
-detail texture is TILED across the planet, every spike became a storm tower in the
-same place on every tile: a regular field of pimples. Ours carries a smooth, gently
-varying type instead, so the calm deck drifts between the deck and belt-edge types
-and the real storms come from the mask's red channel, which is not tiled.
+Height therefore comes off the map, and bright means high, which is both what the
+eye expects and what the planets do: bright cloud on a giant is fresh ice carried
+up above the deck, so Neptune's white wisps ride high and the darker lanes sit low.
+Earlier versions took the type from the detail texture instead, and since that
+texture tiles across the planet and its type channel was noise, the decks did vary
+in height with nothing visible to tie it to, which reads as no variation at all.
+(Jupiter's stock artwork runs the other way, towers over its darker regions. That
+is its mask's business and this script does not touch it.)
 
-Storminess is where the stormy types get selected. Two physical cues, both read
-off the planet's own map:
-
-  shear    storms and vortices live in the shear between zonal jets, so the
-           latitudinal gradient of the zonal-mean brightness marks the belts'
-           edges.
-  anomaly  a pixel that departs from its own latitude's mean is already a
-           discrete feature on the map: the Great Dark Spot, Saturn's storms.
-
-Tuning: STORM_SHEAR / STORM_SPOT weight the two cues, STORM_GAMMA sets how much
-of the planet stays calm (higher = calmer), STORM_BLUR_DEG their smallest scale.
+This script also writes the detail texture itself, GiantCloudDetail.dds, now just
+the two endpoints the blend needs: tall at one end, low at the other. Borrowing
+Jupiter's lower-deck detail for it put sparse spikes in the type channel, and every
+spike raised a tower in the same place on every tile: a regular field of pimples.
 """
 import os, subprocess
 import numpy as np
@@ -52,9 +47,13 @@ LO, HI = 0.35, 0.85
 COVER_DRIFT = 0.07     # large-scale drift, so no band is perfectly uniform
 COVER_LOCAL = 0.10     # finer drift, so tops undulate within a band as well
 
-DETAIL_N = 256         # detail tile resolution
-DETAIL_TYPE_MAX = 1.00 # span both cloud types, so the deck's height varies with it
-DETAIL_BETA = 2.1      # spectral slope: higher = smoother, fewer small features
+# Cloud type, and so column height, read off the map: 0 is the tall type, 1 the low
+# one. The gain is how much of that span the map is allowed to use; the noise keeps
+# a band from being one flat altitude from end to end.
+TYPE_GAIN = 0.85
+TYPE_NOISE = 0.15
+
+DETAIL_N = 8           # detail tile resolution; it is a flat pair, so this is plenty
 
 def periodic_fbm(n, beta, seed=7):
     """Noise built in the frequency domain, so it tiles seamlessly by construction."""
@@ -93,8 +92,13 @@ for src_name, out_base in JOBS:
                       + COVER_LOCAL * (periodic_fbm(W, 1.5, seed=57)[:H] - 0.5) * 2.0, 0.0, 1.0)
     a8 = Image.fromarray((cov * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1))
 
+    # Type 0 is the tall deck and 1 the low one, so invert brightness: the bright
+    # cloud rides above the dark lanes, and the relief follows what you can see.
+    ctype = np.clip(TYPE_GAIN * (1.0 - luma)
+                    + TYPE_NOISE * (periodic_fbm(W, 1.7, seed=91)[:H] - 0.5) * 2.0, 0.0, 1.0)
+
     out = np.empty((H, W, 4), np.uint8)
-    out[..., 0] = 0                                # detail-tile selector: the calm tile only
+    out[..., 0] = (ctype * 255).astype(np.uint8)   # cloud type -> how high a column builds
     out[..., 1] = 255                              # unused by the shader
     out[..., 2] = 255                              # unused by the shader
     out[..., 3] = np.asarray(a8)                   # coverage
@@ -103,20 +107,23 @@ for src_name, out_base in JOBS:
     subprocess.run([NVTT, "-f", "bc3", "--no-mips", "-o",
                     os.path.join(OUT, out_base + ".dds"), tmp], check=True)
     os.remove(tmp)
-    print(f"{out_base}.dds <- {src_name}: coverage {LO}-{HI}, no storms")
+    bright, dark = luma > np.percentile(luma, 90), luma < np.percentile(luma, 10)
+    print(f"{out_base}.dds <- {src_name}: coverage {LO}-{HI}, no storms; "
+          f"type {ctype.mean():.2f} mean, {ctype[bright].mean():.2f} over the brightest "
+          f"tenth vs {ctype[dark].mean():.2f} over the darkest (lower = taller)")
 # The tiled detail texture: RG is tile A (coverage, type), BA is tile B. Coverage
-# stays 1 in both (the global mask owns coverage, as Jupiter's own detail does).
-# Tile A's type is the smooth drift; tile B's type is 1.0, the storm end, which the
-# mask's red channel fades in.
+# stays 1 in both, so the global mask owns coverage, as Jupiter's own detail does.
+# The two types are the ends of the blend the mask's red channel runs between, flat
+# so that nothing about the deck's height comes from a texture that tiles.
 detail = np.empty((DETAIL_N, DETAIL_N, 4), np.uint8)
 detail[..., 0] = 255                                                   # tile A coverage
-detail[..., 1] = (periodic_fbm(DETAIL_N, DETAIL_BETA) * DETAIL_TYPE_MAX * 255).astype(np.uint8)
+detail[..., 1] = 0                                                     # tile A type: tall
 detail[..., 2] = 255                                                   # tile B coverage
-detail[..., 3] = 255                                                   # tile B type = storm
+detail[..., 3] = 255                                                   # tile B type: low
 tmp = os.path.join(OUT, "_gdetail_tmp.png")
 Image.fromarray(detail, "RGBA").save(tmp)
 subprocess.run([NVTT, "-f", "bc3", "--no-mips", "-o",
                 os.path.join(OUT, "GiantCloudDetail.dds"), tmp], check=True)
 os.remove(tmp)
-print(f"GiantCloudDetail.dds: {DETAIL_N}px tile, calm type drifts 0-{DETAIL_TYPE_MAX:.2f}, storm type 1.0")
+print(f"GiantCloudDetail.dds: {DETAIL_N}px flat pair, tall type at one end, low at the other")
 print("giant cloud masks built")
