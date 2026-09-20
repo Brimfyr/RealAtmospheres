@@ -122,7 +122,7 @@ internal static class ShadowBuilder
         xml = PatchAtmosphereValues(xml, Payloads.JupiterPairs, "Jupiter");
         xml = PatchAtmosphereValues(xml, Payloads.SaturnPairs, "Saturn");
         xml = PatchAtmosphereValues(xml, Payloads.UranusPairs, "Uranus");
-        xml = PatchJupiterClouds(xml);
+        xml = PatchJupiterClouds(xml, assetsDir);
         xml = SwapDiffuse(xml, "Saturn", assetsDir);
         xml = SwapDiffuse(xml, "Uranus", assetsDir);
         xml = InsertGiantClouds(xml, "Saturn", assetsDir, 95000);
@@ -283,7 +283,7 @@ internal static class ShadowBuilder
     /// All edits are verified against the layer span first and applied
     /// all-or-nothing: heights and densities must move together or opacity
     /// breaks, so a single drifted anchor skips the whole rescale.</summary>
-    private static string PatchJupiterClouds(string s)
+    private static string PatchJupiterClouds(string s, string assetsDir)
     {
         if (s.Contains(Payloads.JupiterCloudsMarker))
             return s; // already applied
@@ -310,7 +310,7 @@ internal static class ShadowBuilder
             }
         }
         foreach (var (stock, corrected, _) in Payloads.JupiterCloudEdits)
-            span = span.Replace(stock, corrected);
+            span = span.Replace(stock, corrected.Replace("{ASSETS}", assetsDir));
 
         return s[..a] + Payloads.JupiterCloudsMarkerComment + span + s[b..];
     }

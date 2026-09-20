@@ -124,6 +124,27 @@ def periodic_fbm(n, beta, seed=7):
     img -= img.min()
     return (img / max(img.max(), 1e-9)).astype(np.float32)
 
+# Jupiter's deep deck. Stock's lower-deck mask covers ~3% of the planet, so the
+# storm holes in its main deck open onto the 1-bar mesh. This one has no holes:
+# coverage stays well above the shader's 0.01 cutoff everywhere, with a gentle
+# large-scale drift so it reads as cloud rather than a plate. Red is 0, which
+# selects the detail tile whose green channel varies, so the deck still picks up
+# both of that layer's cloud types.
+DEEP_N = 1024
+DEEP_LO, DEEP_HI = 0.55, 0.82
+deep_cov = periodic_fbm(DEEP_N, 2.3, seed=11)
+deep = np.empty((DEEP_N // 2, DEEP_N, 4), np.uint8)
+deep[..., 0] = 0
+deep[..., 1] = 255
+deep[..., 2] = 255
+deep[..., 3] = ((DEEP_LO + (DEEP_HI - DEEP_LO) * deep_cov[:DEEP_N // 2]) * 255).astype(np.uint8)
+tmp = os.path.join(OUT, "_gdeep_tmp.png")
+Image.fromarray(deep, "RGBA").save(tmp)
+subprocess.run([NVTT, "-f", "bc3", "--no-mips", "-o",
+                os.path.join(OUT, "JupiterDeepDeckMask.dds"), tmp], check=True)
+os.remove(tmp)
+print(f"JupiterDeepDeckMask.dds: coverage {DEEP_LO}-{DEEP_HI}, no holes")
+
 detail = np.empty((DETAIL_N, DETAIL_N, 4), np.uint8)
 detail[..., 0] = 255                                                   # tile A coverage
 detail[..., 1] = (periodic_fbm(DETAIL_N, DETAIL_BETA) * DETAIL_TYPE_MAX * 255).astype(np.uint8)

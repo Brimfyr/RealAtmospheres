@@ -684,6 +684,12 @@ internal static class Payloads
          "<Height M=\"10000\" />\n                        <Density Value=\"0.00103\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"2.4\" />", 1),
         ("<Height M=\"330000\" />\n                        <Density Value=\"0.0004\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />",
          "<Height M=\"56000\" />\n                        <Density Value=\"0.00229\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.5\" />", 1),
+        // Stock's lower-deck mask covers ~3% of the planet, so the main deck's storm
+        // holes open onto the 1-bar mesh, unlit under a deck of optical depth ~190.
+        // Ours has no holes, which gives the vortices a floor of cloud to bottom out
+        // on. {ASSETS} is substituted with the mod's assets folder before matching.
+        ("<Texture Id=\"JupiterLowerCloudsMask\" Path=\"Textures/Clouds/Compressed/JupiterLowerCloudsMask.dds\" Category=\"Terrain\">",
+         "<Texture Id=\"JupiterLowerCloudsMask\" Path=\"{ASSETS}\\JupiterDeepDeckMask.dds\" Category=\"Terrain\">", 1),
         // raymarch scale: steps and light reach shrink with the layer thickness
         ("<Size M=\"10000\" />",           "<Size M=\"1500\" />",            2),
         ("<MaxSize M=\"175000\" />",       "<MaxSize M=\"25000\" />",        2),

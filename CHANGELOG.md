@@ -31,7 +31,13 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   at stock values, so the noise that erodes clouds into shape spanned 420 km across a 96 km deck
   and barely varied inside a 10 km vortex. Storms rendered as hard-edged slabs. Noise now follows
   the rescale (main deck 420 -> 73 km, lower deck 120 -> 22 km), back inside stock's ratios.
-- Jupiter's vortex cores no longer bottom out on a flat dark floor. Stock keeps its lower deck
+- Jupiter's storm holes open onto cloud rather than the planet. Its main deck's mask has true
+  holes at the storm centres, and stock's lower-deck mask is not an under-deck at all: 97% of it
+  is below the coverage cutoff, a sparse layer over ~3% of the planet. Stock hides what lies
+  beneath behind a 650 km scale-height atmosphere; ours is physically thin, so the holes exposed
+  the unlit 1-bar mesh. That layer now uses a continuous mask of ours, keeping its rescaled
+  geometry, so the vortices bottom out on a lit deck.
+- Jupiter's lower deck sits above the planet mesh again. Stock keeps its lower deck
   almost entirely above the mesh at the 1-bar level (-4..216 km), filling everything beneath the
   main deck; the rescale shifted that deck down instead of scaling its height, burying most of it
   and leaving only the fading top of its density curve visible. The vortices were opening onto
