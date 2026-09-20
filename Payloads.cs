@@ -449,7 +449,9 @@ internal static class Payloads
                         </CloudShape>
                     </CloudType>
 
-                    <!-- Types 1-3 give the deck vertical variety. The shader picks a type from
+                    <!-- Types 1-3 give the deck vertical variety. They top out BELOW the deck, the
+                         way Jupiter's storm types do, so vortices read as pits in it and the
+                         layer's top (where the 2D billboard hangs) does not move. The shader picks a type from
                          the detail tile's green channel, blended by our mask's red channel
                          (GetCoverageAndCloudType in CloudFunctions.glsl), so most of the planet
                          stays on the deck above and storms appear where the mask says so. -->
@@ -472,7 +474,7 @@ internal static class Payloads
                         </CloudShape>
                     </CloudType>
                     <CloudType Name="GiantStormEdge">
-                        <StartAltitude M="8000" />
+                        <StartAltitude M="5000" />
                         <Height M="{HEIGHT_STORM}" />
                         <Density Value="0.00035" />
                         <NoiseScale M="140000" />
@@ -490,12 +492,12 @@ internal static class Payloads
                         </CloudShape>
                     </CloudType>
                     <CloudType Name="GiantStormCenter">
-                        <StartAltitude M="0" />
+                        <StartAltitude M="5000" />
                         <Height M="{HEIGHT_CORE}" />
                         <Density Value="0.0016" />
                         <NoiseScale M="170000" />
                         <EdgeSharpness Value="0.97" />
-                        <MultipleScatteringBrightness Value="0.85" />
+                        <MultipleScatteringBrightness Value="2.0" />
                         <!-- vortex core: roots below the deck, tower punching well above it -->
                         <CloudShape InterpolateShapes="true">
                             <ShapeCurve>
@@ -647,10 +649,15 @@ internal static class Payloads
     public static readonly (string Stock, string Corrected, int Count)[] JupiterCloudEdits =
     {
         // lower deck: -4..216 km -> -25..+15 km (meets the raised main deck)
-        ("<StartAltitude M=\"-4000\" />",  "<StartAltitude M=\"-25000\" />", 2),
-        ("<Height M=\"220000\" />",        "<Height M=\"40000\" />",         2),
-        ("<Density Value=\"0.0002800000074785203\" />", "<Density Value=\"0.00154\" />", 1),
-        ("<Density Value=\"0.0007999999797903001\" />", "<Density Value=\"0.0044\" />", 1),
+        // Lower deck: -4..216 km -> -25..+15 km, meeting the raised main deck. Its top
+        // surface is what you see at the bottom of a vortex pit, so its brightness is
+        // raised here too: shadowed from above and lit by a thin atmosphere, it was
+        // reading as a flat black floor. Height, density and brightness travel together
+        // because every anchor is matched against the pristine span.
+        ("<StartAltitude M=\"-4000\" />\n                        <Height M=\"220000\" />\n                        <Density Value=\"0.0002800000074785203\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.9700000286102295\" />\n                        <MultipleScatteringBrightness Value=\"1\" />",
+         "<StartAltitude M=\"-25000\" />\n                        <Height M=\"40000\" />\n                        <Density Value=\"0.00154\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.9700000286102295\" />\n                        <MultipleScatteringBrightness Value=\"3.0\" />", 1),
+        ("<StartAltitude M=\"-4000\" />\n                        <Height M=\"220000\" />\n                        <Density Value=\"0.0007999999797903001\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1\" />",
+         "<StartAltitude M=\"-25000\" />\n                        <Height M=\"40000\" />\n                        <Density Value=\"0.0044\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"3.0\" />", 1),
         // main deck: base 220 km -> 15 km (raised so vortex roots clear the
         // mesh - black spots fix); heights /5.73 (towers ~20% taller than the
         // x2 cut, tops ~111 km), densities scaled inversely

@@ -12,8 +12,10 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   this one already matches.
 - The giants' volumetric clouds gain vertical variety. They had a single cloud type, so every
   cloud on Saturn, Uranus and Neptune sat at one height with one density, which is why those decks
-  looked uniform next to Jupiter's. There are now four types (deck, ragged belt edge, storm anvil,
-  vortex core) rising to 2.2x the deck's tower height, with the vortex core rooted below the deck.
+  looked uniform next to Jupiter's. There are now four types: the deck, ragged belt edges, storm
+  anvils and vortex cores, each topping out lower than the last so storms read as depressions in
+  the deck, the way Jupiter's do. Every type stops at or below the deck's own top, so the layer's
+  top altitude, where the 2D billboard hangs, is exactly where 1.0.0 had it.
 - The cloud masks now drive that choice. The shader picks a cloud type from the detail tile blended
   by the mask's red channel, and ours wrote a flat 1.0 there, pinning the whole planet to one tile
   and one type. The red channel now carries a storminess field derived from each planet's own map:

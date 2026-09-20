@@ -180,9 +180,11 @@ internal static class ShadowBuilder
             .Replace("{BODY}", body).Replace("{ASSETS}", assetsDir)
             .Replace("{HEIGHT}", towerHeightM.ToString())
             // the storm types rise above the deck; heights scale with the per-planet tower
-            .Replace("{HEIGHT_EDGE}", (towerHeightM * 5 / 4).ToString())
-            .Replace("{HEIGHT_STORM}", (towerHeightM * 17 / 10).ToString())
-            .Replace("{HEIGHT_CORE}", (towerHeightM * 11 / 5).ToString());
+            // Shorter than the deck, so each is a depression in it rather than a tower
+            // above it. Anything taller would raise the layer top and the 2D billboard.
+            .Replace("{HEIGHT_EDGE}", (towerHeightM * 4 / 5).ToString())
+            .Replace("{HEIGHT_STORM}", (towerHeightM * 11 / 20).ToString())
+            .Replace("{HEIGHT_CORE}", (towerHeightM * 3 / 10).ToString());
         Log($"{body} volumetric clouds added{(hasFlow ? $" + per-planet flowmap (2D + volumetric), disp {disp}km" : "")}");
         return content[..ae] + block + content[ae..];
     }
