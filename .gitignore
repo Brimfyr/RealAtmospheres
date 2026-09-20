@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+dist/
+
+# Local StarMap launcher config, not part of the mod
+StarMapConfig.json
+
+# Texture sources and built masks are deliberately not in the repository: they are
+# large, and several are third-party work whose redistribution terms are recorded in
+# CREDITS.md. Release archives carry the built masks; see release-files.txt.
+assets/
+Mars_Upper_Clouds.png

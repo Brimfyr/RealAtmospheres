@@ -1,0 +1,4 @@
+name = "Real Atmospheres"
+
+[StarMap]
+EntryAssembly = "RealAtmospheres"
