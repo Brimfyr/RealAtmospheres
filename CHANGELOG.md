@@ -26,6 +26,11 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   type channel, and because that texture tiles across the planet, each spike became a storm
   tower in the same spot on every tile: a regular field of bumps. Ours varies smoothly and
   never reaches the storm types on its own, so storms come from the mask, which does not tile.
+- Jupiter's cloud noise is rescaled along with its decks. The rescale to real altitudes shrank
+  them 5.7x and adjusted heights, densities, raymarch steps and light reach, but left NoiseScale
+  at stock values, so the noise that erodes clouds into shape spanned 420 km across a 96 km deck
+  and barely varied inside a 10 km vortex. Storms rendered as hard-edged slabs. Noise now follows
+  the rescale (main deck 420 -> 73 km, lower deck 120 -> 22 km), back inside stock's ratios.
 - Jupiter's vortex cores no longer read as black pits. Rescaling its decks to real altitudes
   closed the gap stock leaves between them (216 km against a 220 km base), so the lower deck's
   flat top sat exactly where the vortices bottom out, shadowed from above and lit by an

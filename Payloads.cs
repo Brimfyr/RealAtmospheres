@@ -685,6 +685,14 @@ internal static class Payloads
         ("<Size M=\"10000\" />",           "<Size M=\"1500\" />",            2),
         ("<MaxSize M=\"175000\" />",       "<MaxSize M=\"25000\" />",        2),
         ("<LightDistance M=\"120000\" />", "<LightDistance M=\"35000\" />",  2),
+        // Noise scale follows the rescale: /5.73 for the main deck, /5.5 for the lower
+        // one, which puts noise/height back in stock's 0.5-1.3 band (7.3 for the vortex
+        // core, stock 7.6). Without this the noise is far larger than the deck is deep,
+        // so storms render as hard-edged slabs instead of being eroded into shape.
+        // Must stay after the per-type edits above: those carry the stock NoiseScale
+        // through untouched, so the counts here still match.
+        ("<NoiseScale M=\"420000\" />",    "<NoiseScale M=\"73000\" />",     4),
+        ("<NoiseScale M=\"120000\" />",    "<NoiseScale M=\"22000\" />",     2),
         // 2D billboards (user-tuned): JupiterClouds 0.95 (its 2D block is the
         // one with a FlowMap - unique discriminator), JupiterLowerClouds 1.
         // Order matters: the specific edit must run before the generic one;
