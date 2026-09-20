@@ -26,6 +26,19 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   type channel, and because that texture tiles across the planet, each spike became a storm
   tower in the same spot on every tile: a regular field of bumps. Ours varies smoothly and
   never reaches the storm types on its own, so storms come from the mask, which does not tile.
+- Volumetric clouds fade into their 2D billboards much further out. The rescale had pulled
+  Jupiter's fade band in from 5000-9000 km to 700-1300, which made the swap obvious; stock's band
+  is restored, and the giants now use the same fractions of their own radii (Saturn 4200-7500 km,
+  Uranus and Neptune 1800-3300). Storm holes at the vortex centres are stock behaviour, present
+  with the mod disabled, so nothing here chases them.
+- Jupiter's lower deck sits above the planet mesh again: the rescale had shifted it down rather
+  than scaling its height, leaving 62% of it buried where stock keeps 98% above. It now spans
+  -1..+12 km, 3 km below the main deck, with density raised to hold the optical depth.
+- Jupiter's cloud noise is rescaled along with its decks. The rescale to real altitudes shrank
+  them 5.7x and adjusted heights, densities, raymarch steps and light reach, but left NoiseScale
+  at stock values, so the noise that erodes clouds into shape spanned 420 km across a 96 km deck
+  and barely varied inside a 10 km vortex. Storms rendered as hard-edged slabs. Noise now follows
+  the rescale (main deck 420 -> 73 km, lower deck 120 -> 22 km), back inside stock's ratios.
 - Jupiter's cloud noise is rescaled along with its decks. The rescale to real altitudes shrank
   them 5.7x and adjusted heights, densities, raymarch steps and light reach, but left NoiseScale
   at stock values, so the noise that erodes clouds into shape spanned 420 km across a 96 km deck

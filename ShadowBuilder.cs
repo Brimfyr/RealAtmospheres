@@ -122,7 +122,7 @@ internal static class ShadowBuilder
         xml = PatchAtmosphereValues(xml, Payloads.JupiterPairs, "Jupiter");
         xml = PatchAtmosphereValues(xml, Payloads.SaturnPairs, "Saturn");
         xml = PatchAtmosphereValues(xml, Payloads.UranusPairs, "Uranus");
-        xml = PatchJupiterClouds(xml, assetsDir);
+        xml = PatchJupiterClouds(xml);
         xml = SwapDiffuse(xml, "Saturn", assetsDir);
         xml = SwapDiffuse(xml, "Uranus", assetsDir);
         xml = InsertGiantClouds(xml, "Saturn", assetsDir, 95000);
@@ -173,10 +173,22 @@ internal static class ShadowBuilder
             "Neptune" => "9000.0",   // 450 m/s / 0.18
             _         => "9000.0"
         };
+        // Volumetric-to-2D fade band, as fractions of each planet's radius matching
+        // stock Jupiter's (7.2% and 12.9%). Fading closer in makes the swap obvious.
+        var (transStart, transEnd) = body switch
+        {
+            "Saturn"  => (4200, 7500),
+            "Uranus"  => (1800, 3300),
+            "Neptune" => (1800, 3200),
+            _         => (1800, 3300)
+        };
         string block = Payloads.GiantCloudsTemplate
             .Replace("{FLOWMAP}", hasFlow ? Payloads.GiantFlowMapTemplate : "")
             .Replace("{VOLFLOWTEX}", hasFlow ? Payloads.GiantVolFlowTexPerPlanet : Payloads.GiantVolFlowTexJupiter)
             .Replace("{DISP}", disp)
+            .Replace("{TRANSSTART}", transStart.ToString())
+            .Replace("{TRANSEND}", transEnd.ToString())
+            .Replace("{FLICKER}", (transEnd * 11 / 10).ToString())
             .Replace("{BODY}", body).Replace("{ASSETS}", assetsDir)
             .Replace("{HEIGHT}", towerHeightM.ToString())
             // the storm types rise above the deck; heights scale with the per-planet tower
@@ -283,7 +295,7 @@ internal static class ShadowBuilder
     /// All edits are verified against the layer span first and applied
     /// all-or-nothing: heights and densities must move together or opacity
     /// breaks, so a single drifted anchor skips the whole rescale.</summary>
-    private static string PatchJupiterClouds(string s, string assetsDir)
+    private static string PatchJupiterClouds(string s)
     {
         if (s.Contains(Payloads.JupiterCloudsMarker))
             return s; // already applied
@@ -310,7 +322,7 @@ internal static class ShadowBuilder
             }
         }
         foreach (var (stock, corrected, _) in Payloads.JupiterCloudEdits)
-            span = span.Replace(stock, corrected.Replace("{ASSETS}", assetsDir));
+            span = span.Replace(stock, corrected);
 
         return s[..a] + Payloads.JupiterCloudsMarkerComment + span + s[b..];
     }

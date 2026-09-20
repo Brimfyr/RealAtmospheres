@@ -392,10 +392,13 @@ internal static class Payloads
 
         <!-- Real Atmospheres: Jupiter-style volumetric clouds (banding mask + diffuse colour) -->
         <Clouds>
-            <OrbitTransitionStartAltitude Km="400" />
-            <OrbitTransitionEndAltitude Km="800" />
-            <MaxShadowsAltitude Km="800" />
-            <VolumetricsFlickerReductionDistance Km="800" />
+            <!-- Camera-altitude band over which volumetrics fade into the 2D billboard.
+                 Stock Jupiter fades between 7.2% and 12.9% of its radius; fading closer in
+                 makes the swap obvious, so each giant uses those fractions of its own. -->
+            <OrbitTransitionStartAltitude Km="{TRANSSTART}" />
+            <OrbitTransitionEndAltitude Km="{TRANSEND}" />
+            <MaxShadowsAltitude Km="{TRANSEND}" />
+            <VolumetricsFlickerReductionDistance Km="{FLICKER}" />
             <Layer Id="{BODY}Clouds">
                 <RotationSpeed X="0" Y="0" Z="0" />
                 <VolumetricCloud>
@@ -611,26 +614,6 @@ internal static class Payloads
         // cloud transition settings: stock 5000/9000 km was tuned for the
         // 220-770 km showcase towers; rescaled with the realistic deck (~x6.5
         // of the ~111 km cloud tops, same ratio as stock used).
-        (
-            "<OrbitTransitionStartAltitude Km=\"5000\" />",
-            "<OrbitTransitionStartAltitude Km=\"700\" /> <!-- Real Atmospheres: rescaled with the realistic deck altitudes -->",
-            "rescaled with the realistic deck altitudes"
-        ),
-        (
-            "<OrbitTransitionEndAltitude Km=\"9000\" />",
-            "<OrbitTransitionEndAltitude Km=\"1300\" />",
-            "<OrbitTransitionEndAltitude Km=\"1300\" />"
-        ),
-        (
-            "<MaxShadowsAltitude Km=\"9000\" />",
-            "<MaxShadowsAltitude Km=\"1300\" />",
-            "<MaxShadowsAltitude Km=\"1300\" />"
-        ),
-        (
-            "<VolumetricsFlickerReductionDistance Km=\"10000.0\"/>",
-            "<VolumetricsFlickerReductionDistance Km=\"1500\"/>",
-            "<VolumetricsFlickerReductionDistance Km=\"1500\"/>"
-        ),
     };
 
     // ---------------- Astronomicals.xml: Jupiter clouds at realistic altitudes ----------------
@@ -660,9 +643,9 @@ internal static class Payloads
         // still hold. Height, density and brightness travel together because every anchor
         // is matched against the pristine span.
         ("<StartAltitude M=\"-4000\" />\n                        <Height M=\"220000\" />\n                        <Density Value=\"0.0002800000074785203\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.9700000286102295\" />\n                        <MultipleScatteringBrightness Value=\"1\" />",
-         "<StartAltitude M=\"-1000\" />\n                        <Height M=\"13000\" />\n                        <Density Value=\"0.0047\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.9700000286102295\" />\n                        <MultipleScatteringBrightness Value=\"3.0\" />", 1),
+         "<StartAltitude M=\"-1000\" />\n                        <Height M=\"13000\" />\n                        <Density Value=\"0.0047\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.9700000286102295\" />\n                        <MultipleScatteringBrightness Value=\"1\" />", 1),
         ("<StartAltitude M=\"-4000\" />\n                        <Height M=\"220000\" />\n                        <Density Value=\"0.0007999999797903001\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1\" />",
-         "<StartAltitude M=\"-1000\" />\n                        <Height M=\"13000\" />\n                        <Density Value=\"0.0136\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"3.0\" />", 1),
+         "<StartAltitude M=\"-1000\" />\n                        <Height M=\"13000\" />\n                        <Density Value=\"0.0136\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1\" />", 1),
         // main deck: base 220 km -> 15 km (raised so vortex roots clear the
         // mesh - black spots fix); heights /5.73 (towers ~20% taller than the
         // x2 cut, tops ~111 km), densities scaled inversely
@@ -681,19 +664,13 @@ internal static class Payloads
         // bright: lower these. Still dark: raise the storm heights and drop their
         // densities in step, so the optical depth holds.
         ("<Height M=\"55000\" />\n                        <Density Value=\"0.00018\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />",
-         "<Height M=\"10000\" />\n                        <Density Value=\"0.00103\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"2.4\" />", 1),
+         "<Height M=\"10000\" />\n                        <Density Value=\"0.00103\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
         ("<Height M=\"330000\" />\n                        <Density Value=\"0.0004\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />",
-         "<Height M=\"56000\" />\n                        <Density Value=\"0.00229\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.5\" />", 1),
-        // Stock's lower-deck mask covers ~3% of the planet, so the main deck's storm
-        // holes open onto the 1-bar mesh, unlit under a deck of optical depth ~190.
-        // Ours has no holes, which gives the vortices a floor of cloud to bottom out
-        // on. {ASSETS} is substituted with the mod's assets folder before matching.
-        ("<Texture Id=\"JupiterLowerCloudsMask\" Path=\"Textures/Clouds/Compressed/JupiterLowerCloudsMask.dds\" Category=\"Terrain\">",
-         "<Texture Id=\"JupiterLowerCloudsMask\" Path=\"{ASSETS}\\JupiterDeepDeckMask.dds\" Category=\"Terrain\">", 1),
+         "<Height M=\"56000\" />\n                        <Density Value=\"0.00229\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
         // raymarch scale: steps and light reach shrink with the layer thickness
         ("<Size M=\"10000\" />",           "<Size M=\"1500\" />",            2),
         ("<MaxSize M=\"175000\" />",       "<MaxSize M=\"25000\" />",        2),
-        ("<LightDistance M=\"120000\" />", "<LightDistance M=\"35000\" />",  2),
+        ("<LightDistance M=\"120000\" />", "<LightDistance M=\"17500\" />",  2),
         // Noise scale follows the rescale: /5.73 for the main deck, /5.5 for the lower
         // one, which puts noise/height back in stock's 0.5-1.3 band (7.3 for the vortex
         // core, stock 7.6). Without this the noise is far larger than the deck is deep,
