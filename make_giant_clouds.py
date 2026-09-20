@@ -13,6 +13,13 @@ Core/Shaders/Clouds/CloudFunctions.glsl):
          1.0 here (as the first version did) pins every pixel to one tile and one
          type, which is why those decks came out uniform.
 
+This script also writes the detail texture itself, GiantCloudDetail.dds. Borrowing
+Jupiter's lower-deck detail put sparse spikes in its type channel, and since the
+detail texture is TILED across the planet, every spike became a storm tower in the
+same place on every tile: a regular field of pimples. Ours carries a smooth, gently
+varying type instead, so the calm deck drifts between the deck and belt-edge types
+and the real storms come from the mask's red channel, which is not tiled.
+
 Storminess is where the stormy types get selected. Two physical cues, both read
 off the planet's own map:
 
@@ -55,6 +62,10 @@ ACTIVITY = {"Saturn": 0.70, "Uranus": 0.25, "Neptune": 1.00}
 # belt edges reach the storm-edge type, and Uranus stays on the deck.
 STORM_GAIN = 2.5
 
+DETAIL_N = 256         # detail tile resolution
+DETAIL_TYPE_MAX = 0.33 # calm deck drifts between type 0 and ~1/3, never into storms
+DETAIL_BETA = 2.1      # spectral slope: higher = smoother, fewer small features
+
 JOBS = [
     ("SaturnMapSource.png", "SaturnCloudsMask"),
     ("UranusMapSource.png", "UranusCloudsMask"),
@@ -96,4 +107,32 @@ for src_name, out_base in JOBS:
     print(f"{out_base}.dds <- {src_name}: coverage {LO}-{HI}, activity {ACTIVITY[body]}, "
           f"storminess mean {storm.mean():.2f} p90 {np.percentile(storm, 90):.2f} "
           f"p99 {np.percentile(storm, 99):.2f} (0 = calm deck, 1 = storm type)")
+# The tiled detail texture: RG is tile A (coverage, type), BA is tile B. Coverage
+# stays 1 in both (the global mask owns coverage, as Jupiter's own detail does).
+# Tile A's type is the smooth drift; tile B's type is 1.0, the storm end, which the
+# mask's red channel fades in.
+def periodic_fbm(n, beta, seed=7):
+    """Noise built in the frequency domain, so it tiles seamlessly by construction."""
+    rng = np.random.default_rng(seed)
+    fy, fx = np.fft.fftfreq(n)[:, None], np.fft.fftfreq(n)[None, :]
+    f = np.sqrt(fx ** 2 + fy ** 2)
+    f[0, 0] = 1e-6
+    amp = f ** (-beta)
+    amp[0, 0] = 0.0
+    amp[f > 0.25] = 0.0                     # drop the finest features entirely
+    img = np.fft.ifft2(amp * np.exp(1j * rng.uniform(0, 2 * np.pi, (n, n)))).real
+    img -= img.min()
+    return (img / max(img.max(), 1e-9)).astype(np.float32)
+
+detail = np.empty((DETAIL_N, DETAIL_N, 4), np.uint8)
+detail[..., 0] = 255                                                   # tile A coverage
+detail[..., 1] = (periodic_fbm(DETAIL_N, DETAIL_BETA) * DETAIL_TYPE_MAX * 255).astype(np.uint8)
+detail[..., 2] = 255                                                   # tile B coverage
+detail[..., 3] = 255                                                   # tile B type = storm
+tmp = os.path.join(OUT, "_gdetail_tmp.png")
+Image.fromarray(detail, "RGBA").save(tmp)
+subprocess.run([NVTT, "-f", "bc3", "--no-mips", "-o",
+                os.path.join(OUT, "GiantCloudDetail.dds"), tmp], check=True)
+os.remove(tmp)
+print(f"GiantCloudDetail.dds: {DETAIL_N}px tile, calm type drifts 0-{DETAIL_TYPE_MAX:.2f}, storm type 1.0")
 print("giant cloud masks built")

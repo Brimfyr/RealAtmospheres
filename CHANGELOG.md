@@ -20,6 +20,14 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   the shear between its zonal jets, plus departures from the latitude mean that mark discrete
   features. Per-planet weighting keeps the ordering physical, so Neptune's Great Dark Spot reaches
   the vortex-core type, Saturn's belt edges reach storm anvils, and Uranus stays nearly uniform.
+- The giants ship their own cloud detail tile. Borrowing Jupiter's put sparse spikes in the
+  type channel, and because that texture tiles across the planet, each spike became a storm
+  tower in the same spot on every tile: a regular field of bumps. Ours varies smoothly and
+  never reaches the storm types on its own, so storms come from the mask, which does not tile.
+- Jupiter's vortex cores no longer read as black pits. Rescaling its decks to real altitudes
+  left them lit by an atmosphere far thinner than the stock one, with no inscatter to fill a
+  pit whose walls tower ~85 km above its floor. Light now reaches 35 km into the deck instead
+  of 17.5, and the two storm types scatter more brightly, which keeps the sunken vortices.
 - Asset names follow `<Body><Role>[2D|Volumetric].<ext>`, with pipeline inputs suffixed `Source`. Four
   shipped files changed name: `Saturn/Uranus/NeptuneDiffuse.ktx2` and `MarsDustPhaseLut.glsl`. Nothing in
   the game refers to these names.

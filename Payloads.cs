@@ -405,7 +405,7 @@ internal static class Payloads
                     </Texture>
                     <Detail>
                         <DetailSelector Id="{BODY}CloudsMask"/>
-                        <Texture Path="Textures/Clouds/Compressed/JupiterLowerLayerDetail.dds" Category="Terrain">
+                        <Texture Path="{ASSETS}\GiantCloudDetail.dds" Category="Terrain">
                             <IsVirtual>false</IsVirtual>
                             <Manifest><MaxSize>0</MaxSize><MipMaps>false</MipMaps></Manifest>
                         </Texture>
@@ -655,18 +655,27 @@ internal static class Payloads
         // mesh - black spots fix); heights /5.73 (towers ~20% taller than the
         // x2 cut, tops ~111 km), densities scaled inversely
         ("<StartAltitude M=\"220000\" />", "<StartAltitude M=\"15000\" />",  4),
-        ("<Height M=\"55000\" />",         "<Height M=\"10000\" />",         1),
-        ("<Height M=\"330000\" />",        "<Height M=\"56000\" />",         1),
         ("<Height M=\"440000\" />",        "<Height M=\"76000\" />",         1),
         ("<Height M=\"550000\" />",        "<Height M=\"96000\" />",         1),
-        ("<Density Value=\"0.00018\" />",  "<Density Value=\"0.00103\" />",  1),
-        ("<Density Value=\"0.0004\" />",   "<Density Value=\"0.00229\" />",  1),
         ("<Density Value=\"0.0000081\" />","<Density Value=\"0.0000464\" />", 1),
         ("<Density Value=\"0.00035\" />",  "<Density Value=\"0.002\" />",    1),
+        // The two storm types carry height, density and brightness in one edit each,
+        // because every anchor is checked against the pristine span before anything is
+        // applied: an anchor written against already-edited text skips the whole rescale.
+        // Brightness is raised because our Jupiter atmosphere is thin (H 25 km against
+        // stock's 650), so little inscatter reaches a vortex pit whose walls tower ~85 km
+        // above its floor, and the deck's own shadows finish the job, leaving the cores
+        // black. Brightening keeps the sunken vortices, which are worth keeping. Too
+        // bright: lower these. Still dark: raise the storm heights and drop their
+        // densities in step, so the optical depth holds.
+        ("<Height M=\"55000\" />\n                        <Density Value=\"0.00018\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />",
+         "<Height M=\"10000\" />\n                        <Density Value=\"0.00103\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"2.4\" />", 1),
+        ("<Height M=\"330000\" />\n                        <Density Value=\"0.0004\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />",
+         "<Height M=\"56000\" />\n                        <Density Value=\"0.00229\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.5\" />", 1),
         // raymarch scale: steps and light reach shrink with the layer thickness
         ("<Size M=\"10000\" />",           "<Size M=\"1500\" />",            2),
         ("<MaxSize M=\"175000\" />",       "<MaxSize M=\"25000\" />",        2),
-        ("<LightDistance M=\"120000\" />", "<LightDistance M=\"17500\" />",  2),
+        ("<LightDistance M=\"120000\" />", "<LightDistance M=\"35000\" />",  2),
         // 2D billboards (user-tuned): JupiterClouds 0.95 (its 2D block is the
         // one with a FlowMap - unique discriminator), JupiterLowerClouds 1.
         // Order matters: the specific edit must run before the generic one;
