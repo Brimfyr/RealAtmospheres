@@ -27,9 +27,12 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   tower in the same spot on every tile: a regular field of bumps. Ours varies smoothly and
   never reaches the storm types on its own, so storms come from the mask, which does not tile.
 - Jupiter's vortex cores no longer read as black pits. Rescaling its decks to real altitudes
-  left them lit by an atmosphere far thinner than the stock one, with no inscatter to fill a
-  pit whose walls tower ~85 km above its floor. Light now reaches 35 km into the deck instead
-  of 17.5, and the two storm types scatter more brightly, which keeps the sunken vortices.
+  closed the gap stock leaves between them (216 km against a 220 km base), so the lower deck's
+  flat top sat exactly where the vortices bottom out, shadowed from above and lit by an
+  atmosphere far thinner than the one those decks were authored for. The lower deck now sits at
+  -32..+8 km, 7 km clear of the main deck, so descending passes through distinct layers as it
+  does in stock. Light also reaches 35 km into the decks rather than 17.5, and the storm types
+  scatter more brightly, which keeps the sunken vortices rather than flattening them.
 - Asset names follow `<Body><Role>[2D|Volumetric].<ext>`, with pipeline inputs suffixed `Source`. Four
   shipped files changed name: `Saturn/Uranus/NeptuneDiffuse.ktx2` and `MarsDustPhaseLut.glsl`. Nothing in
   the game refers to these names.
