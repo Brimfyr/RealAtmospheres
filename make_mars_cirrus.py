@@ -11,17 +11,15 @@ match the body's FIRST cloud layer type -> DXT5 equirect with coverage in ALPHA
 (volumetric) and RGBA white+alpha PNG (2D). Coverage is scaled faint (the alpha
 IS the opacity), edges pre-blurred, bilinear downscale (no ringing).
 
-Two corrections bring this export in line with the masks shipped in 1.0.0, which were
-built from a third-party re-upload we can no longer use:
+Two knobs exist for bringing a new export in line with the masks shipped in 1.0.0,
+both measured against those masks and both currently inactive, because the export in
+use already matches them (percentile drift 0.004, longitude correlation 0.9997):
 
-  ROLL_DEG   the export sits 89.1 deg east of that map (measured by detrended
-             longitude cross-correlation, a sharp peak). Rolling back keeps the
-             clouds where they have always been in-game. Set to 0.0 to keep
-             SpaceEngine's own alignment instead.
-  TONE_*     the export has a lifted background (median luminance 0.42 against
-             0.07), so a scale or gamma cannot match it. These knots are the
-             quantile mapping onto the shipped mask's own tone curve, which
-             reproduces its opacity distribution (mean alpha 0.062 either way).
+  ROLL_DEG   longitude offset, if an export is framed differently. Measure it with a
+             detrended longitude cross-correlation against the shipped mask.
+  TONE_OUT   a monotone quantile mapping onto the shipped mask's tone curve, for an
+             export whose background sits at a different level. A scale or gamma
+             cannot do this job. None means identity.
 
 Tuning knobs: ALPHA_SCALE (master opacity), GAMMA (patch-vs-hood balance), BLUR.
 """
@@ -40,20 +38,18 @@ ALPHA_SCALE_2D = 0.24   # 2D billboard opacity (hoods ~0.20)
 ALPHA_SCALE_VOL = 0.70  # volumetric coverage (fill = this + shape - 1 -> wider footprint)
 GAMMA = 1.1            # >1 suppresses the dim equatorial patches slightly vs hoods
 BLUR_FRAC = 4.0 / 8192  # soft edges, as a fraction of width so it survives a resolution change
-ROLL_DEG = 89.12       # align this export to the orientation shipped in 1.0.0
-
-# Quantile mapping from this export's luminance onto the shipped mask's tone.
+ROLL_DEG = 0.0         # this export is already aligned with the shipped masks
 TONE_IN = np.linspace(0.0, 1.0, 17)
-TONE_OUT = np.array([0.0000, 0.0446, 0.0446, 0.0446, 0.0446, 0.0645, 0.0645, 0.0645,
-                     0.0645, 0.0838, 0.1026, 0.1573, 0.3618, 0.5230, 0.6639, 0.7561,
-                     1.0000], np.float32)   # top knot pinned to 1.0 to keep peak opacity
+TONE_OUT = None        # identity; this export is already in the shipped tone space
 
 src = Image.open(SRC).convert("L")
 blur = max(1.0, BLUR_FRAC * src.size[0])
 src = src.filter(ImageFilter.GaussianBlur(radius=blur))
 luma = np.asarray(src, np.float32) / 255.0
-luma = np.roll(luma, int(round(ROLL_DEG / 360.0 * luma.shape[1])), axis=1)
-luma = np.interp(luma, TONE_IN, TONE_OUT).astype(np.float32)
+if ROLL_DEG:
+    luma = np.roll(luma, int(round(ROLL_DEG / 360.0 * luma.shape[1])), axis=1)
+if TONE_OUT is not None:
+    luma = np.interp(luma, TONE_IN, TONE_OUT).astype(np.float32)
 
 alpha_2d = np.clip((luma ** GAMMA) * ALPHA_SCALE_2D, 0.0, 1.0)
 alpha_vol = np.clip((luma ** GAMMA) * ALPHA_SCALE_VOL, 0.0, 1.0)

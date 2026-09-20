@@ -178,7 +178,11 @@ internal static class ShadowBuilder
             .Replace("{VOLFLOWTEX}", hasFlow ? Payloads.GiantVolFlowTexPerPlanet : Payloads.GiantVolFlowTexJupiter)
             .Replace("{DISP}", disp)
             .Replace("{BODY}", body).Replace("{ASSETS}", assetsDir)
-            .Replace("{HEIGHT}", towerHeightM.ToString());
+            .Replace("{HEIGHT}", towerHeightM.ToString())
+            // the storm types rise above the deck; heights scale with the per-planet tower
+            .Replace("{HEIGHT_EDGE}", (towerHeightM * 5 / 4).ToString())
+            .Replace("{HEIGHT_STORM}", (towerHeightM * 17 / 10).ToString())
+            .Replace("{HEIGHT_CORE}", (towerHeightM * 11 / 5).ToString());
         Log($"{body} volumetric clouds added{(hasFlow ? $" + per-planet flowmap (2D + volumetric), disp {disp}km" : "")}");
         return content[..ae] + block + content[ae..];
     }

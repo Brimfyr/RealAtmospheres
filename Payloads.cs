@@ -448,6 +448,65 @@ internal static class Payloads
                             </ShapeCurve>
                         </CloudShape>
                     </CloudType>
+
+                    <!-- Types 1-3 give the deck vertical variety. The shader picks a type from
+                         the detail tile's green channel, blended by our mask's red channel
+                         (GetCoverageAndCloudType in CloudFunctions.glsl), so most of the planet
+                         stays on the deck above and storms appear where the mask says so. -->
+                    <CloudType Name="GiantBandEdge">
+                        <StartAltitude M="5000" />
+                        <Height M="{HEIGHT_EDGE}" />
+                        <Density Value="0.00042" />
+                        <NoiseScale M="95000" />
+                        <EdgeSharpness Value="0.6" />
+                        <MultipleScatteringBrightness Value="1" />
+                        <!-- ragged belt edges: rounder than the deck, taper starts earlier -->
+                        <CloudShape InterpolateShapes="true">
+                            <ShapeCurve>
+                                <SplinePoint><Key Value="0.0"/><Value Value="0.0"/><InTangent Value="3.0"/><OutTangent Value="3.0"/></SplinePoint>
+                                <SplinePoint><Key Value="0.22"/><Value Value="1.0"/><InTangent Value="0.0"/><OutTangent Value="0.0"/></SplinePoint>
+                                <SplinePoint><Key Value="0.45"/><Value Value="0.9"/><InTangent Value="-0.4"/><OutTangent Value="-0.4"/></SplinePoint>
+                                <SplinePoint><Key Value="0.75"/><Value Value="0.4"/><InTangent Value="-1.8"/><OutTangent Value="-1.8"/></SplinePoint>
+                                <SplinePoint><Key Value="1.0"/><Value Value="0.0"/><InTangent Value="-2.0"/><OutTangent Value="-2.0"/></SplinePoint>
+                            </ShapeCurve>
+                        </CloudShape>
+                    </CloudType>
+                    <CloudType Name="GiantStormEdge">
+                        <StartAltitude M="8000" />
+                        <Height M="{HEIGHT_STORM}" />
+                        <Density Value="0.00035" />
+                        <NoiseScale M="140000" />
+                        <EdgeSharpness Value="0.0" />
+                        <MultipleScatteringBrightness Value="1" />
+                        <!-- anvil: thin at the base, broad plateau aloft, like Jupiter's StormEdge -->
+                        <CloudShape InterpolateShapes="true">
+                            <ShapeCurve>
+                                <SplinePoint><Key Value="0.0"/><Value Value="0.0"/><InTangent Value="0.8"/><OutTangent Value="0.8"/></SplinePoint>
+                                <SplinePoint><Key Value="0.35"/><Value Value="0.55"/><InTangent Value="1.6"/><OutTangent Value="1.6"/></SplinePoint>
+                                <SplinePoint><Key Value="0.62"/><Value Value="1.0"/><InTangent Value="0.0"/><OutTangent Value="0.0"/></SplinePoint>
+                                <SplinePoint><Key Value="0.88"/><Value Value="0.85"/><InTangent Value="-0.8"/><OutTangent Value="-0.8"/></SplinePoint>
+                                <SplinePoint><Key Value="1.0"/><Value Value="0.0"/><InTangent Value="-3.0"/><OutTangent Value="-3.0"/></SplinePoint>
+                            </ShapeCurve>
+                        </CloudShape>
+                    </CloudType>
+                    <CloudType Name="GiantStormCenter">
+                        <StartAltitude M="0" />
+                        <Height M="{HEIGHT_CORE}" />
+                        <Density Value="0.0016" />
+                        <NoiseScale M="170000" />
+                        <EdgeSharpness Value="0.97" />
+                        <MultipleScatteringBrightness Value="0.85" />
+                        <!-- vortex core: roots below the deck, tower punching well above it -->
+                        <CloudShape InterpolateShapes="true">
+                            <ShapeCurve>
+                                <SplinePoint><Key Value="0.0"/><Value Value="0.7"/><InTangent Value="1.2"/><OutTangent Value="1.2"/></SplinePoint>
+                                <SplinePoint><Key Value="0.25"/><Value Value="1.0"/><InTangent Value="0.0"/><OutTangent Value="0.0"/></SplinePoint>
+                                <SplinePoint><Key Value="0.65"/><Value Value="0.95"/><InTangent Value="-0.3"/><OutTangent Value="-0.3"/></SplinePoint>
+                                <SplinePoint><Key Value="0.88"/><Value Value="0.5"/><InTangent Value="-2.2"/><OutTangent Value="-2.2"/></SplinePoint>
+                                <SplinePoint><Key Value="1.0"/><Value Value="0.0"/><InTangent Value="-3.5"/><OutTangent Value="-3.5"/></SplinePoint>
+                            </ShapeCurve>
+                        </CloudShape>
+                    </CloudType>
                 </VolumetricCloud>
                 <TwoDimensionalCloud>
                     <Texture Id="{BODY}_Diffuse"/>

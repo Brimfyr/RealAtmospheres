@@ -10,6 +10,16 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   p90 and peak opacity, 0.94 spatial correlation with the 1.0.0 masks. Two corrections make that hold —
   the export sits 89.1° east of the old map, and its background is lifted (median luminance 0.42 against
   0.07), so the generator carries a quantile mapping onto the shipped tone curve.
+- The giants' volumetric clouds gain vertical variety. They had a single cloud type, so every
+  cloud on Saturn, Uranus and Neptune sat at one height with one density, which is why those decks
+  looked uniform next to Jupiter's. There are now four types (deck, ragged belt edge, storm anvil,
+  vortex core) rising to 2.2x the deck's tower height, with the vortex core rooted below the deck.
+- The cloud masks now drive that choice. The shader picks a cloud type from the detail tile blended
+  by the mask's red channel, and ours wrote a flat 1.0 there, pinning the whole planet to one tile
+  and one type. The red channel now carries a storminess field derived from each planet's own map:
+  the shear between its zonal jets, plus departures from the latitude mean that mark discrete
+  features. Per-planet weighting keeps the ordering physical, so Neptune's Great Dark Spot reaches
+  the vortex-core type, Saturn's belt edges reach storm anvils, and Uranus stays nearly uniform.
 - Asset names follow `<Body><Role>[2D|Volumetric].<ext>`, with pipeline inputs suffixed `Source`. Four
   shipped files changed name: `Saturn/Uranus/NeptuneDiffuse.ktx2` and `MarsDustPhaseLut.glsl`. Nothing in
   the game refers to these names.
