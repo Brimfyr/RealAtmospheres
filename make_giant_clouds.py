@@ -20,9 +20,9 @@ W, H = 4096, 2048
 LO, HI = 0.45, 0.9
 
 JOBS = [
-    ("saturn_texture_map___mixed_by_jcp_johncarlo_dc28gow.png", "SaturnCloudsMask"),
-    ("uranus_texture_map_by_askaniy_dcmlkco.png", "UranusCloudsMask"),
-    ("neptune clouds.png", "NeptuneCloudsMask"),
+    ("SaturnMapSource.png", "SaturnCloudsMask"),
+    ("UranusMapSource.png", "UranusCloudsMask"),
+    ("NeptuneMapSource.png", "NeptuneCloudsMask"),
 ]
 
 for src_name, out_base in JOBS:

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Convert the user's SE cloud exports into the Titan haze masks:
-  assets/clouds0_diff.png -> TitanUpperHazeMask*  (290 km lamina)
-  assets/clouds1_diff.png -> TitanLowerHazeMask*  (230 km lamina)
+  assets/TitanLowerHazeSource.png -> TitanUpperHazeMask*  (290 km lamina)
+  assets/TitanUpperHazeSource.png -> TitanLowerHazeMask*  (230 km lamina)
 Luminance -> coverage (drops SE's yellow tint; output is white RGB + alpha so
 the layer Color owns the tint), p99-normalized per map.
 
@@ -23,11 +23,11 @@ NVTT = r"C:\Program Files\NVIDIA Corporation\NVIDIA Texture Tools\nvtt_export.ex
 # NOTE sources are deliberately CROSSED (user preferred the maps swapped):
 # clouds1 feeds the upper lamina, clouds0 the lower.
 JOBS = [
-    ("clouds1_diff.png", "TitanUpperHazeMask", 0.55, 0.04),
-    ("clouds0_diff.png", "TitanLowerHazeMask", 0.70, 0.05),
+    ("TitanUpperHazeSource.png", "TitanUpperHazeMask", 0.55, 0.04),
+    ("TitanLowerHazeSource.png", "TitanLowerHazeMask", 0.70, 0.05),
     # vol alpha = far-field cloud shadow darkness (= coverage) AND volumetric
     # fill footprint. 0.35: user prefers the softer far shadow over wider fill.
-    ("triton_clouds.png", "TritonCloudsMask", 0.35, 0.06),
+    ("TritonCloudsSource.png", "TritonCloudsMask", 0.35, 0.06),
 ]
 
 

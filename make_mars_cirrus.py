@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Build the Mars high-altitude cirrus textures from our own SpaceEngine PRO export.
 
-Source: mars_upper_clouds_se_export.png, exported from SpaceEngine PRO with the
+Source: MarsCirrusSource.png, exported from SpaceEngine PRO with the
 procedural-texture option OFF (with it on, the exporter writes procedural stand-ins
 instead of the real Solar System maps). Distributing derivatives of our own export is
 what the PRO EULA allows; see CREDITS.md.
@@ -32,7 +32,7 @@ from PIL import Image, ImageFilter
 Image.MAX_IMAGE_PIXELS = None
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "assets")
-SRC = os.path.join(OUT, "mars_upper_clouds_se_export.png")
+SRC = os.path.join(OUT, "MarsCirrusSource.png")
 NVTT = r"C:\Program Files\NVIDIA Corporation\NVIDIA Texture Tools\nvtt_export.exe"
 os.makedirs(OUT, exist_ok=True)
 

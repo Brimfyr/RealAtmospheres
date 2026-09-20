@@ -5,7 +5,7 @@
 # Mars: cirrus layer + exact dust phase LUT (delete the LUT to fall back to the embedded HG fit)
 MarsCirrusMaskVolumetric.dds
 MarsCirrusMask2D.png
-mars_dust_phase_lut.glsl
+MarsDustPhaseLut.glsl
 
 # Titan: detached upper + lower haze laminae
 TitanUpperHazeMaskVolumetric.dds
@@ -20,10 +20,10 @@ TritonCloudsMask2D.png
 # Ice/gas giants: volumetric cloud mask, cloud flowmap, colour map (Jupiter uses stock files)
 SaturnCloudsMask.dds
 SaturnFlowmap.dds
-Saturn_Diffuse.ktx2
+SaturnDiffuse.ktx2
 UranusCloudsMask.dds
 UranusFlowmap.dds
-Uranus_Diffuse.ktx2
+UranusDiffuse.ktx2
 NeptuneCloudsMask.dds
 NeptuneFlowmap.dds
-Neptune_Diffuse.ktx2
+NeptuneDiffuse.ktx2

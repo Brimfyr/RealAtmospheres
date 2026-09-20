@@ -47,7 +47,7 @@ internal static class ShadowBuilder
 
         // Level-2 phase LUT: if the generated LUT is present, it replaces the
         // embedded Level-1 HG-fit phase block (delete the file to fall back to L1).
-        string lut = Path.Combine(assetsDir, "mars_dust_phase_lut.glsl");
+        string lut = Path.Combine(assetsDir, "MarsDustPhaseLut.glsl");
         _phaseBlock = File.Exists(lut) ? ReadLf(lut).Trim('\n') : Payloads.PatchedPhaseBlock;
         if (File.Exists(lut)) Log("Mars phase: LEVEL 2 (exact bhmie LUT)");
 
@@ -185,7 +185,7 @@ internal static class ShadowBuilder
 
     private static string SwapDiffuse(string content, string body, string assetsDir)
     {
-        string ktx = Path.Combine(assetsDir, $"{body}_Diffuse.ktx2");
+        string ktx = Path.Combine(assetsDir, $"{body}Diffuse.ktx2");
         string stock = $"Path=\"Textures/{body}_Diffuse.ktx2\"";
         if (File.Exists(ktx) && content.Contains(stock))
         {

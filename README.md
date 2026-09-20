@@ -182,11 +182,11 @@ flowmaps by the scripts in this repo.
 | Source | By | Shipped files derived from it |
 |---|---|---|
 | Mars cloud map | HMSMaidNelson | `MarsCirrusMaskVolumetric.dds`, `MarsCirrusMask2D.png` |
-| Saturn texture map | JCP-JohnCarlo | `Saturn_Diffuse.ktx2`, `SaturnCloudsMask.dds`, `SaturnFlowmap.dds` |
-| Uranus texture map | Askaniy | `Uranus_Diffuse.ktx2`, `UranusCloudsMask.dds`, `UranusFlowmap.dds` |
-| Neptune texture map | Askaniy | `Neptune_Diffuse.ktx2`, `NeptuneCloudsMask.dds`, `NeptuneFlowmap.dds` |
+| Saturn texture map | JCP-JohnCarlo | `SaturnDiffuse.ktx2`, `SaturnCloudsMask.dds`, `SaturnFlowmap.dds` |
+| Uranus texture map | Askaniy | `UranusDiffuse.ktx2`, `UranusCloudsMask.dds`, `UranusFlowmap.dds` |
+| Neptune texture map | Askaniy | `NeptuneDiffuse.ktx2`, `NeptuneCloudsMask.dds`, `NeptuneFlowmap.dds` |
 | Titan haze maps | SpaceEngine | `TitanUpperHazeMask*`, `TitanLowerHazeMask*` |
 | Triton cloud map | SpaceEngine | `TritonCloudsMask*` |
 
-`mars_dust_phase_lut.glsl` is computed by `make_mars_phase_lut.py` (Mie scattering), not derived from any
+`MarsDustPhaseLut.glsl` is computed by `make_mars_phase_lut.py` (Mie scattering), not derived from any
 image. Jupiter uses the game's own textures.

@@ -4,14 +4,14 @@ RGB as a GLSL const-array LUT (no 3-lobe HG fit, no texture binding). Same dust
 model as _build/mars_dust_mie.py (feldspar+hematite, bimodal log-normal, Schneegans
 et al. 2024). NO knee compression - the double-exp dust density tames the sunset.
 
-Writes assets/mars_dust_phase_lut.glsl. When present, ShadowBuilder uses it as the
+Writes assets/MarsDustPhaseLut.glsl. When present, ShadowBuilder uses it as the
 phase block instead of the embedded Level-1 HG fit (delete it to fall back to L1).
 """
 import math, os
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "assets", "mars_dust_phase_lut.glsl")
+OUT = os.path.join(HERE, "assets", "MarsDustPhaseLut.glsl")
 
 HEMATITE = 1.0
 LAMBDAS = [0.680, 0.550, 0.440]

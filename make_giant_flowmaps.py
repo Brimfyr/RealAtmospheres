@@ -31,12 +31,12 @@ GTURB_AMP = 0.02           # tiny vertical turbulence in G
 # Storms placed per body: each rotates + shows the west-red/east-green lean, like
 # Jupiter's Great Red Spot. Coords (u,v) are the storm centre in [0,1] equirect;
 # (rx,ry) radii in px, amp dipole strength, rot swirl. Neptune's Great Dark Spot
-# is the big soft oval at u~0.41,v~0.61 (read off neptune clouds.png), with a
+# is the big soft oval at u~0.41,v~0.61 (read off NeptuneMapSource.png), with a
 # fainter companion lower-right.
 JOBS = [
-    ("saturn_texture_map___mixed_by_jcp_johncarlo_dc28gow.png", "SaturnFlowmap", []),
-    ("uranus_texture_map_by_askaniy_dcmlkco.png", "UranusFlowmap", []),
-    ("neptune clouds.png", "NeptuneFlowmap",
+    ("SaturnMapSource.png", "SaturnFlowmap", []),
+    ("UranusMapSource.png", "UranusFlowmap", []),
+    ("NeptuneMapSource.png", "NeptuneFlowmap",
         [(0.415, 0.610, 120.0, 72.0, 0.24, 0.07),     # Great Dark Spot (toned down: gentler swirl)
          (0.700, 0.810, 60.0, 42.0, 0.14, 0.05)]),    # companion dark spot
 ]

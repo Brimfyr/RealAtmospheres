@@ -20,9 +20,9 @@ BUILD = _find_build()
 RES = 2048
 
 JOBS = [
-    ("saturn_texture_map___mixed_by_jcp_johncarlo_dc28gow.png", "Saturn_Diffuse"),
-    ("uranus_texture_map_by_askaniy_dcmlkco.png", "Uranus_Diffuse"),
-    ("neptune clouds.png", "Neptune_Diffuse"),
+    ("SaturnMapSource.png", "SaturnDiffuse"),
+    ("UranusMapSource.png", "UranusDiffuse"),
+    ("NeptuneMapSource.png", "NeptuneDiffuse"),
 ]
 
 sys.argv = ["build_maps.py", "__skip_all_builds__"]

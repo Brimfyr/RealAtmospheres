@@ -672,7 +672,7 @@ internal static class Payloads
             <Layer Id="TitanDetachedHaze">
                 <RotationSpeed X="0" Y="0" Z="-15" />
                 <VolumetricCloud>
-                    <!-- user's organic SE export (clouds0_diff), whitened via luminance->alpha -->
+                    <!-- user's organic SE export (TitanLowerHazeSource), whitened via luminance->alpha -->
                     <Texture Id="TitanUpperHazeMaskVolumetric" Path="{ASSETS}\TitanUpperHazeMaskVolumetric.dds" Category="Terrain">
                         <IsVirtual>false</IsVirtual>
                         <Manifest>
@@ -728,7 +728,7 @@ internal static class Payloads
             </Layer>
 
             <!-- Real Atmospheres: lower haze lamina - the broken/stratified strips below the main
-                 detached layer (user's SE export clouds1_diff, whitened) -->
+                 detached layer (user's SE export TitanUpperHazeSource, whitened) -->
             <Layer Id="TitanLowerHaze">
                 <RotationSpeed X="0" Y="0" Z="-15" />
                 <VolumetricCloud>
