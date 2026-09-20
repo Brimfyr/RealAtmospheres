@@ -57,7 +57,9 @@ shaders can stop them compiling, so check the release's tested game build.
   makes it puffy).
 - **Volumetric clouds** (Jupiter-style, stock Saturn had none): 3D banded cloud
   structure with towers, coverage taken from the planet's own banding and colour
-  sampled from its diffuse map, so the clouds match the surface.
+  sampled from its diffuse map, so the clouds match the surface. How high a column
+  builds follows the map's brightness, bright cloud being fresh ice carried up,
+  so the pale bands stand roughly 37 km above the dark ones.
 - **Higher-resolution surface map** — 2048/face, up from stock 1024.
 
 ### Uranus & Neptune
@@ -68,7 +70,9 @@ shaders can stop them compiling, so check the release's tested game build.
   above-haze λ⁻⁴ Rayleigh limb and a gentle haze sit on top.
 - **Volumetric clouds** (Jupiter-style, neither had any in stock): 3D cloud
   structure with towers, coverage from the planet's banding and colour sampled
-  from its diffuse map. Subtler on featureless Uranus, more defined on Neptune.
+  from its diffuse map. Cloud-top height follows the map's brightness, so
+  Neptune's white wisps ride about 26 km above its dark lanes. Subtler on
+  featureless Uranus, more defined on Neptune.
 - **Higher-resolution surface maps** — 2048/face, up from stock 512.
 
 ### Titan

@@ -2,8 +2,10 @@
 
 ## 1.0.1
 
-The atmospheres are unchanged from 1.0.0. This release re-sources the Mars cloud map so every texture in
-the archive is properly licensed, standardises the asset names, and adds mod manager support.
+The atmospheres themselves are unchanged from 1.0.0. This release re-sources the Mars cloud map so every
+texture in the archive is properly licensed, works on the giants' cloud decks, which were flat and sheared,
+refreshes Uranus's and Neptune's colour maps, cleans up what Jupiter's rescale left behind, standardises
+the asset names and adds mod manager support.
 
 - Mars cirrus masks are now generated from our own SpaceEngine PRO export instead of a third-party
   re-upload we cannot redistribute. The look is preserved: mean opacity 0.0619 → 0.0613, identical median
@@ -39,33 +41,19 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   is restored, and the giants now use the same fractions of their own radii (Saturn 4200-7500 km,
   Uranus and Neptune 1800-3300). Storm holes at the vortex centres are stock behaviour, present
   with the mod disabled, so nothing here chases them.
-- Jupiter's lower deck sits above the planet mesh again: the rescale had shifted it down rather
-  than scaling its height, leaving 62% of it buried where stock keeps 98% above. It now spans
-  -1..+12 km, 3 km below the main deck, with density raised to hold the optical depth.
-- Jupiter's cloud noise is rescaled along with its decks. The rescale to real altitudes shrank
-  them 5.7x and adjusted heights, densities, raymarch steps and light reach, but left NoiseScale
-  at stock values, so the noise that erodes clouds into shape spanned 420 km across a 96 km deck
-  and barely varied inside a 10 km vortex. Storms rendered as hard-edged slabs. Noise now follows
-  the rescale (main deck 420 -> 73 km, lower deck 120 -> 22 km), back inside stock's ratios.
-- Jupiter's cloud noise is rescaled along with its decks. The rescale to real altitudes shrank
-  them 5.7x and adjusted heights, densities, raymarch steps and light reach, but left NoiseScale
-  at stock values, so the noise that erodes clouds into shape spanned 420 km across a 96 km deck
-  and barely varied inside a 10 km vortex. Storms rendered as hard-edged slabs. Noise now follows
-  the rescale (main deck 420 -> 73 km, lower deck 120 -> 22 km), back inside stock's ratios.
-- Jupiter's storm holes open onto cloud rather than the planet. Its main deck's mask has true
-  holes at the storm centres, and stock's lower-deck mask is not an under-deck at all: 97% of it
-  is below the coverage cutoff, a sparse layer over ~3% of the planet. Stock hides what lies
-  beneath behind a 650 km scale-height atmosphere; ours is physically thin, so the holes exposed
-  the unlit 1-bar mesh. That layer now uses a continuous mask of ours, keeping its rescaled
-  geometry, so the vortices bottom out on a lit deck.
-- Jupiter's lower deck sits above the planet mesh again. Stock keeps its lower deck
-  almost entirely above the mesh at the 1-bar level (-4..216 km), filling everything beneath the
-  main deck; the rescale shifted that deck down instead of scaling its height, burying most of it
-  and leaving only the fading top of its density curve visible. The vortices were opening onto
-  shadowed atmosphere where a cloud deck should have been. It now spans -1..+12 km, 92% of it
-  above the mesh and 3 km clear of the main deck, so a descent still passes through distinct
-  layers. Density rises with the reduced thickness to hold the optical depth. Light also reaches
-  35 km into the decks rather than 17.5, and the storm types scatter more brightly.
+- Jupiter's lower deck sits above the planet mesh again. Stock keeps it almost entirely above the
+  mesh at the 1-bar level (-4..216 km), filling everything beneath the main deck; 1.0.0's rescale
+  to real altitudes shifted that deck down instead of scaling its height, burying 62% of it and
+  leaving only the fading top of its density curve visible. It now spans -1..+12 km, 3 km clear of
+  the main deck, so a descent still passes through distinct layers, with density raised to hold the
+  optical depth across the reduced thickness.
+- Jupiter's cloud noise is rescaled along with its decks. The rescale shrank them 5.7x and adjusted
+  heights, densities, raymarch steps and light reach, but left NoiseScale at stock values, so the
+  noise that erodes clouds into shape spanned 420 km across a 96 km deck and barely varied inside a
+  10 km vortex, rendering storms as hard-edged slabs. Noise now follows the rescale (main deck
+  420 -> 73 km, lower deck 120 -> 22 km), back inside stock's ratios.
+- Uranus's and Neptune's colour maps are updated to better match the planets as observed. Their cloud
+  masks and flowmaps are derived from those maps, so both are rebuilt with them.
 - Asset names follow `<Body><Role>[2D|Volumetric].<ext>`, with pipeline inputs suffixed `Source`. Four
   shipped files changed name: `Saturn/Uranus/NeptuneDiffuse.ktx2` and `MarsDustPhaseLut.glsl`. Nothing in
   the game refers to these names.

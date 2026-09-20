@@ -152,5 +152,7 @@ for src_name, out_base, storms in JOBS:
     subprocess.run([NVTT, "-f", "bc5", "-o",
                     os.path.join(OUT, out_base + ".dds"), tmp], check=True)
     os.remove(tmp)
-    print(f"{out_base}.dds <- {src_name}  (flow +-{np.abs(zf).max():.2f}, mean|dev| {np.abs(band_dev).mean():.3f})")
+    # zf/band_dev are the field before normalisation, so report what was written
+    print(f"{out_base}.dds <- {src_name}  (written flow +-{np.abs(rgb[..., :2] / 255.0 - 0.5).max():.2f}, "
+          f"jets +-{np.abs(zf).max() * norm:.2f}, mean|dev| {np.abs(band_dev).mean() * norm:.3f})")
 print("giant flowmaps built")
