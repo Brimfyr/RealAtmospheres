@@ -66,6 +66,41 @@ DETAIL_N = 256         # detail tile resolution
 DETAIL_TYPE_MAX = 0.33 # calm deck drifts between type 0 and ~1/3, never into storms
 DETAIL_BETA = 2.1      # spectral slope: higher = smoother, fewer small features
 
+# Real vortices, placed explicitly. The storminess cues above read each planet's own
+# map, and these maps carry little discrete structure, so documented features are
+# placed by hand at their observed latitudes. Entries: (name, lat, lon, half-width
+# and half-height in degrees, storminess, coverage dip). Longitudes are ours to
+# choose except on Neptune, where they match the features in its own map.
+VORTICES = {
+    "Saturn": [
+        ("north polar hexagon and cyclone", 78.0,  20.0, 34.0,  7.0, 0.85, 0.05),
+        ("south polar vortex",             -87.0,  0.0, 70.0,  4.0, 0.85, 0.05),
+        ("Great White Spot (2010-11)",      35.0, 140.0, 46.0,  6.0, 0.70, 0.07),
+        ("string of pearls",                40.0, 255.0, 24.0,  3.0, 0.45, 0.03),
+    ],
+    "Uranus": [
+        # Nearly featureless in visible light; the 2006 dark spot is the exception.
+        ("Uranus Dark Spot (2006)",         27.0, 200.0, 11.0,  5.5, 0.60, 0.09),
+    ],
+    "Neptune": [
+        ("Great Dark Spot (Voyager 2)",    -20.0, 149.0, 18.0,  9.0, 1.00, 0.15),
+        ("Dark Spot 2",                    -56.0, 252.0, 10.0,  6.0, 0.70, 0.10),
+    ],
+}
+
+def place_vortices(body, storm, cov, w, h):
+    """Raise storminess and dip coverage over each documented vortex."""
+    lon = (np.arange(w) + 0.5) / w * 360.0
+    lat = 90.0 - (np.arange(h) + 0.5) / h * 180.0
+    for name, vlat, vlon, rx, ry, strength, dip in VORTICES.get(body, []):
+        dlon = (lon[None, :] - vlon + 180.0) % 360.0 - 180.0      # wrap east-west
+        dlat = lat[:, None] - vlat
+        fall = np.exp(-((dlon / rx) ** 2 + (dlat / ry) ** 2))
+        storm = np.maximum(storm, strength * fall)
+        cov = cov * (1.0 - dip * fall)
+        print(f"     {name}: lat {vlat:+.0f}, lon {vlon:.0f}, storminess {strength:.2f}")
+    return storm, cov
+
 JOBS = [
     ("SaturnMapSource.png", "SaturnCloudsMask"),
     ("UranusMapSource.png", "UranusCloudsMask"),
@@ -93,6 +128,9 @@ for src_name, out_base in JOBS:
     storm = np.clip(storm * ACTIVITY[body] * STORM_GAIN, 0.0, 1.0)
     storm = np.asarray(Image.fromarray((storm * 255).astype(np.uint8)).filter(
         ImageFilter.GaussianBlur(STORM_BLUR_DEG / 360.0 * W)), np.float32) / 255.0
+    cov_arr = np.asarray(a8, np.float32) / 255.0
+    storm, cov_arr = place_vortices(body, storm, cov_arr, W, H)
+    a8 = Image.fromarray((np.clip(cov_arr, 0.0, 1.0) * 255).astype(np.uint8))
 
     out = np.empty((H, W, 4), np.uint8)
     out[..., 0] = (storm * 255).astype(np.uint8)   # detail-tile selector -> cloud type

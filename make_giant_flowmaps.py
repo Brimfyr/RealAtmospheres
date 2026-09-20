@@ -33,6 +33,15 @@ GTURB_AMP = 0.02           # tiny vertical turbulence in G
 # (rx,ry) radii in px, amp dipole strength, rot swirl. Neptune's Great Dark Spot
 # is the big soft oval at u~0.41,v~0.61 (read off NeptuneMapSource.png), with a
 # fainter companion lower-right.
+# Per-planet displacement (ShadowBuilder sets these, calibrated to real peak jets).
+# The eddy terms below are amplitudes in flow units, so the distance they actually
+# advect is amplitude x displacement: without scaling, Uranus's 18000 km carries its
+# eddies nearly 3x as far as Saturn's and shears the deck apart up close.
+DISPLACEMENT_KM = {"SaturnFlowmap": 6200.0, "UranusFlowmap": 18000.0, "NeptuneFlowmap": 9000.0}
+EDDY_TRAVEL_KM = 1000.0     # how far eddies should drift per loop on every planet
+                            # (Saturn already sits at this, so it is the reference and
+                            #  only the planets with larger displacements come down)
+
 JOBS = [
     ("SaturnMapSource.png", "SaturnFlowmap", []),
     ("UranusMapSource.png", "UranusFlowmap", []),
@@ -88,6 +97,14 @@ for src_name, out_base, storms in JOBS:
         print(f"skip: {src_name} not found"); continue
     luma = np.asarray(Image.open(src).convert("L").resize((W, H), Image.LANCZOS), np.float32) / 255.0
 
+    # eddy amplitudes scaled so they advect EDDY_TRAVEL_KM whatever the planet's
+    # displacement; the zonal jets keep their calibrated speeds
+    flow_scale = min(1.0, (EDDY_TRAVEL_KM / DISPLACEMENT_KM[out_base]) / EDDY_AMP)
+    eddy_amp, lean_amp = EDDY_AMP * flow_scale, LEAN_AMP * flow_scale
+    fine_amp, gturb_amp = FINE_AMP * flow_scale, GTURB_AMP * flow_scale
+    print(f"  {out_base}: displacement {DISPLACEMENT_KM[out_base]:.0f} km, "
+          f"eddy amplitude x{flow_scale:.2f} -> drift ~{eddy_amp * DISPLACEMENT_KM[out_base]:.0f} km")
+
     # latitudinal band structure -> zonal flow (detrend the pole->equator baseline)
     Lrow = luma.mean(axis=1)
     band_dev = Lrow - smooth1d(Lrow, H * 0.05)
@@ -98,7 +115,7 @@ for src_name, out_base, storms in JOBS:
     shear = np.abs(np.gradient(zf)); shear /= max(shear.max(), 1e-6)
     eddyW = eddyTaper2d * np.repeat((0.45 + 0.9 * shear)[:, None], W, axis=1)
     B0 = blob_field(46, 11, 0.55)
-    eddy = -EDDY_AMP * B0 + 0.4 * EDDY_AMP * blob_field(70, 12, 0.62)   # green-dominant
+    eddy = -EDDY_AMP * B0 + 0.4 * eddy_amp * blob_field(70, 12, 0.62)   # green-dominant
     eddy += LEAN_AMP * (np.roll(B0, -LEAN_PX, axis=1) - np.roll(B0, LEAN_PX, axis=1))  # red W / green E
     fine = FINE_AMP * value_noise(10, 21)
 

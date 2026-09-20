@@ -26,6 +26,17 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   type channel, and because that texture tiles across the planet, each spike became a storm
   tower in the same spot on every tile: a regular field of bumps. Ours varies smoothly and
   never reaches the storm types on its own, so storms come from the mask, which does not tile.
+- The giants carry their real vortices. Storminess is derived from each planet's own map, and
+  these maps hold little discrete structure, so documented features are now placed at their
+  observed latitudes: Neptune's Great Dark Spot and Dark Spot 2 (Voyager 2, 1989), Saturn's north
+  polar hexagon and cyclone, its south polar vortex, the 2010-11 Great White Spot and the string
+  of pearls, and the single dark spot Uranus showed in 2006. Each raises the storm cloud types and
+  dips coverage slightly, so it reads as a depression in the deck. Neptune's coordinates match the
+  features in its own map and the ones its flowmap already swirls.
+- Uranus's clouds no longer shear apart up close. Eddy strength was a constant while displacement
+  is per planet, and Uranus needs the largest (18000 km) because its faint bands give it little
+  zonal flow, so its eddies drifted nearly 3x as far as Saturn's. Eddy terms now scale so every
+  planet drifts them about 1000 km per loop; the zonal jets keep their calibrated wind speeds.
 - Volumetric clouds fade into their 2D billboards much further out. The rescale had pulled
   Jupiter's fade band in from 5000-9000 km to 700-1300, which made the swap obvious; stock's band
   is restored, and the giants now use the same fractions of their own radii (Saturn 4200-7500 km,
