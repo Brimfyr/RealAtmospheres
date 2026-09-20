@@ -25,20 +25,24 @@ Required credit lines when distributing a release:
 
 | Asset | Source | Terms |
 |---|---|---|
-| `Uranus_Diffuse.ktx2`, `UranusCloudsMask.dds` | `uranus_texture_map_by_askaniy` | Askaniy posts maps under either CC BY 3.0 or CC BY-NC-SA 3.0. **Confirm which applies to this map.** |
-| `Neptune_Diffuse.ktx2`, `NeptuneCloudsMask.dds` | `neptune clouds.png` by Askaniy | As above |
+| `Uranus_Diffuse.ktx2`, `UranusCloudsMask.dds` | `uranus_texture_map_by_askaniy` | **CC BY-NC-SA 3.0** (confirmed). Non-commercial only, and our derivatives of it must also be CC BY-NC-SA 3.0 |
+| `Neptune_Diffuse.ktx2`, `NeptuneCloudsMask.dds` | `neptune clouds.png` by Askaniy | Askaniy posts under CC BY 3.0 or CC BY-NC-SA 3.0. **Still to confirm for this map.** |
 
-If either map is **CC BY-NC-SA 3.0**, two things follow: the mod may not be
-distributed commercially, and our derivatives of that map (the diffuse cubemap, the
-cloud mask, the flowmap built from it) must themselves be offered under CC BY-NC-SA
-3.0. The MIT code is a separate work and stays MIT. If both are **CC BY 3.0**,
-attribution alone is enough and nothing is restricted.
+Because the Uranus map is CC BY-NC-SA 3.0, the release as a whole is non-commercial,
+and `Uranus_Diffuse.ktx2`, `UranusCloudsMask.dds` and `UranusFlowmap.dds` are offered
+under CC BY-NC-SA 3.0 with attribution to Askaniy and a note that they are modified.
+Under CC 3.0 that ShareAlike reaches only adaptations of that map, so the rest of the
+archive keeps its own terms and the MIT code is unaffected.
+
+Dropping Askaniy's Uranus map (stock Uranus diffuse plus our own mask and flowmap)
+would remove the non-commercial condition entirely, if a permissive release matters
+more than that map.
 
 ## Needs resolving before publishing a release
 
 | Asset | Source | Problem |
 |---|---|---|
-| `MarsCirrusMask2D.png`, `MarsCirrusMaskVolumetric.dds` | Built by `make_mars_cirrus.py` from `Mars_Upper_Clouds.png`, a **file taken from a SpaceEngine installation** and re-uploaded by a third party | Bundled data is part of the Software, not its output, and both SpaceEngine EULAs forbid distributing the Software "in whole or in part". SpaceEngine's exporter refuses Solar System textures, so it cannot be turned into our own export. Replace it: rebuild the mask from NASA MARCI/MOC imagery (public domain, credit NASA/JPL-Caltech/MSSS), or generate it procedurally from Mars cloud climatology (aphelion cloud belt, polar hoods, orographic cloud over the Tharsis volcanoes), which is how this mod makes its other masks |
+| `MarsCirrusMask2D.png`, `MarsCirrusMaskVolumetric.dds` | Currently built from `Mars_Upper_Clouds.png`, a third-party re-upload of a SpaceEngine texture (AI-upscaled) | The re-uploaded file is not ours to ship. **Fix in hand:** re-export Mars's cloud layer from SpaceEngine PRO (untick the procedural-texture option, or the exporter writes procedural stand-ins instead of the real maps), then rebuild both masks from that export with `make_mars_cirrus.py`. The export is our own output, so it sits on the same footing as Titan and Triton below. Native export resolution is enough: the mask is flattened to luminance, normalised and block-compressed |
 
 ## Not shipped
 
@@ -51,8 +55,15 @@ Set the catalogue document's SPDX expression to match what the archive actually
 contains. With the Mars source replaced by our own procedural mask, and depending on
 the two Askaniy maps, it is either:
 
-- `MIT AND CC-BY-3.0` — both Askaniy maps under CC BY 3.0, or
-- `MIT AND CC-BY-3.0 AND CC-BY-NC-SA-3.0` — if either is the NonCommercial ShareAlike one.
+```
+MIT AND CC-BY-NC-SA-3.0 AND CC-BY-3.0 AND LicenseRef-SpaceEngine-PRO-Output
+```
 
-The Saturn map has no named license, so record its permission as the credit line
+- `MIT` — the code and everything generated from physics.
+- `CC-BY-NC-SA-3.0` — the Uranus map and our derivatives of it.
+- `CC-BY-3.0` — the Neptune map, once confirmed. Drop this term if it is the NC-SA one instead.
+- `LicenseRef-SpaceEngine-PRO-Output` — the Titan, Triton and Mars masks, distributed
+  under the SpaceEngine PRO EULA's grant for the Software's exported output.
+
+The Saturn map has no named license, so its permission travels as the credit line
 above, in the listing's description and image records.
