@@ -10,22 +10,15 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   and p90, and 0.9998 correlation with the 1.0.0 masks (1.0000 for the volumetric one). The generator
   keeps a longitude roll and a tone-matching curve for future exports, both currently inactive because
   this one already matches.
-- The giants' volumetric clouds gain vertical variety. They had a single cloud type, so every
-  cloud on Saturn, Uranus and Neptune sat at one height with one density, which is why those decks
-  looked uniform next to Jupiter's. There are now four types: the deck, ragged belt edges, storm
-  anvils and vortex cores, each topping out lower than the last so storms read as depressions in
-  the deck, the way Jupiter's do. Every type stops at or below the deck's own top, so the layer's
-  top altitude, where the 2D billboard hangs, is exactly where 1.0.0 had it.
-- The cloud masks now drive that choice. The shader picks a cloud type from the detail tile blended
-  by the mask's red channel, and ours wrote a flat 1.0 there, pinning the whole planet to one tile
-  and one type. The red channel now carries a storminess field derived from each planet's own map:
-  the shear between its zonal jets, plus departures from the latitude mean that mark discrete
-  features. Per-planet weighting keeps the ordering physical, so Neptune's Great Dark Spot reaches
-  the vortex-core type, Saturn's belt edges reach storm anvils, and Uranus stays nearly uniform.
-- The giants ship their own cloud detail tile. Borrowing Jupiter's put sparse spikes in the
-  type channel, and because that texture tiles across the planet, each spike became a storm
-  tower in the same spot on every tile: a regular field of bumps. Ours varies smoothly and
-  never reaches the storm types on its own, so storms come from the mask, which does not tile.
+- The giants' cloud decks gain vertical relief. Every cloud on Saturn, Uranus and Neptune sat at
+  one height with one density, so the decks read as flat slabs next to Jupiter's. They now carry a
+  second, lower cloud type, and the coverage that decides how high a column builds spans a wider
+  range with a finer drift, so tops rise and fall across roughly 40% of the deck. Jupiter's middle
+  types are lowered the same way. No type reaches above the deck, so the layer's top altitude,
+  where the 2D billboard hangs, is where 1.0.0 had it.
+- The giants ship their own cloud detail tile. Borrowing Jupiter's put sparse spikes in its type
+  channel, and since that texture tiles across the planet, every spike raised a tower in the same
+  place on every tile: a regular field of bumps. Ours drifts smoothly instead.
 - Uranus's clouds no longer shear apart up close. Flow displacement had been set from each
   planet's wind speed alone, which drove it to 146x the cloud noise scale on Uranus (Jupiter runs
   about 10x). At that ratio the two advection phases decorrelate and comb the deck. Since speed is
@@ -37,8 +30,6 @@ the archive is properly licensed, standardises the asset names, and adds mod man
   to the ceiling and sat perfectly flat, with nothing for the noise to carve. The window widens
   to the 1st and 99.5th, the ceiling drops from 0.9 to 0.78, and a faint drift keeps any region
   from being uniform.
-- Saturn, Uranus and Neptune carry no storms. Their decks keep two cloud types, so belts still
-  read as gentle depressions rather than one flat slab, but nothing selects a storm.
 - Volumetric clouds fade into their 2D billboards much further out. The rescale had pulled
   Jupiter's fade band in from 5000-9000 km to 700-1300, which made the swap obvious; stock's band
   is restored, and the giants now use the same fractions of their own radii (Saturn 4200-7500 km,

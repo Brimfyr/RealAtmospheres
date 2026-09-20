@@ -206,7 +206,7 @@ internal static class ShadowBuilder
             // Shorter than the deck, so the belt edges read as depressions in it rather
             // than towers above it. Anything taller would raise the layer top, and the
             // 2D billboard hangs from that.
-            .Replace("{HEIGHT_EDGE}", (towerHeightM * 4 / 5).ToString());
+            .Replace("{HEIGHT_EDGE}", (towerHeightM * 9 / 20).ToString());
 ;
         Log($"{body} volumetric clouds added{(hasFlow ? $" + per-planet flowmap (2D + volumetric), disp {disp}km, loop {loop}h ({peakJetMs:0} m/s jets)" : "")}");
         return content[..ae] + block + content[ae..];

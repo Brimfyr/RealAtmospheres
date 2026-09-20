@@ -46,11 +46,14 @@ W, H = 4096, 2048
 # variation. fill = coverage + shape - 1, so this is deliberately generous.
 # Fill is coverage + shape - 1, so a ceiling near 1 fills the whole column and the
 # noise can no longer carve it: the brightest bands go smooth. 0.78 keeps structure.
-LO, HI = 0.45, 0.78
-COVER_DRIFT = 0.05     # faint large-scale variation so no band is perfectly uniform
+# Cloud tops sit where coverage + shape - 1 turns positive, so this range is what
+# swings them: too narrow and the deck is a slab with a dimpled surface.
+LO, HI = 0.35, 0.85
+COVER_DRIFT = 0.07     # large-scale drift, so no band is perfectly uniform
+COVER_LOCAL = 0.10     # finer drift, so tops undulate within a band as well
 
 DETAIL_N = 256         # detail tile resolution
-DETAIL_TYPE_MAX = 0.33 # the calm deck drifts between the two types, nothing beyond
+DETAIL_TYPE_MAX = 1.00 # span both cloud types, so the deck's height varies with it
 DETAIL_BETA = 2.1      # spectral slope: higher = smoother, fewer small features
 
 def periodic_fbm(n, beta, seed=7):
@@ -86,7 +89,8 @@ for src_name, out_base in JOBS:
     p1, p995 = np.percentile(luma, 1), np.percentile(luma, 99.5)
     luma = np.clip((luma - p1) / max(p995 - p1, 1e-6), 0.0, 1.0)
     cov = LO + (HI - LO) * luma
-    cov = np.clip(cov + COVER_DRIFT * (periodic_fbm(W, 2.0, seed=23)[:H] - 0.5) * 2.0, 0.0, 1.0)
+    cov = np.clip(cov + COVER_DRIFT * (periodic_fbm(W, 2.0, seed=23)[:H] - 0.5) * 2.0
+                      + COVER_LOCAL * (periodic_fbm(W, 1.5, seed=57)[:H] - 0.5) * 2.0, 0.0, 1.0)
     a8 = Image.fromarray((cov * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1))
 
     out = np.empty((H, W, 4), np.uint8)

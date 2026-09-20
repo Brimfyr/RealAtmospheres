@@ -614,9 +614,9 @@ internal static class Payloads
         // mesh - black spots fix); heights /5.73 (towers ~20% taller than the
         // x2 cut, tops ~111 km), densities scaled inversely
         ("<StartAltitude M=\"220000\" />", "<StartAltitude M=\"15000\" />",  4),
-        ("<Height M=\"440000\" />",        "<Height M=\"76000\" />",         1),
+        ("<Height M=\"440000\" />",        "<Height M=\"62000\" />",         1),
         ("<Height M=\"550000\" />",        "<Height M=\"96000\" />",         1),
-        ("<Density Value=\"0.0000081\" />","<Density Value=\"0.0000464\" />", 1),
+        ("<Density Value=\"0.0000081\" />","<Density Value=\"0.0000569\" />", 1),
         ("<Density Value=\"0.00035\" />",  "<Density Value=\"0.002\" />",    1),
         // The two storm types carry height, density and brightness in one edit each,
         // because every anchor is checked against the pristine span before anything is
@@ -630,7 +630,7 @@ internal static class Payloads
         ("<Height M=\"55000\" />\n                        <Density Value=\"0.00018\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />",
          "<Height M=\"10000\" />\n                        <Density Value=\"0.00103\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
         ("<Height M=\"330000\" />\n                        <Density Value=\"0.0004\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />",
-         "<Height M=\"56000\" />\n                        <Density Value=\"0.00229\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
+         "<Height M=\"46000\" />\n                        <Density Value=\"0.00279\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
         // raymarch scale: steps and light reach shrink with the layer thickness
         ("<Size M=\"10000\" />",           "<Size M=\"1500\" />",            2),
         ("<MaxSize M=\"175000\" />",       "<MaxSize M=\"25000\" />",        2),
