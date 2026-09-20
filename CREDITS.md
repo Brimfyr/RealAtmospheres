@@ -52,8 +52,7 @@ only as a local reference and is not redistributed.
 ## Listing license expression
 
 Set the catalogue document's SPDX expression to match what the archive actually
-contains. With the Mars source replaced by our own procedural mask, and depending on
-the two Askaniy maps, it is either:
+contains. Once the Mars mask is rebuilt from our own export, that is:
 
 ```
 MIT AND CC-BY-NC-SA-3.0 AND CC-BY-3.0 AND LicenseRef-SpaceEngine-PRO-Output
