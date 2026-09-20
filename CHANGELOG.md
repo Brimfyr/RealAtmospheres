@@ -6,10 +6,10 @@ The atmospheres are unchanged from 1.0.0. This release re-sources the Mars cloud
 the archive is properly licensed, standardises the asset names, and adds mod manager support.
 
 - Mars cirrus masks are now generated from our own SpaceEngine PRO export instead of a third-party
-  re-upload we cannot redistribute. The look is preserved: mean opacity 0.0619 → 0.0623, identical median,
-  p90 and peak opacity, 0.94 spatial correlation with the 1.0.0 masks. Two corrections make that hold —
-  the export sits 89.1° east of the old map, and its background is lifted (median luminance 0.42 against
-  0.07), so the generator carries a quantile mapping onto the shipped tone curve.
+  re-upload we cannot redistribute. The look is preserved: mean opacity 0.0619 → 0.0613, identical median
+  and p90, and 0.9998 correlation with the 1.0.0 masks (1.0000 for the volumetric one). The generator
+  keeps a longitude roll and a tone-matching curve for future exports, both currently inactive because
+  this one already matches.
 - The giants' volumetric clouds gain vertical variety. They had a single cloud type, so every
   cloud on Saturn, Uranus and Neptune sat at one height with one density, which is why those decks
   looked uniform next to Jupiter's. There are now four types (deck, ragged belt edge, storm anvil,
