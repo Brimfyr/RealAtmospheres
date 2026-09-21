@@ -7,7 +7,7 @@
 # RealAtmospheres\ folder, because KSA uses the folder name as the mod id. Ships exactly the files in
 # release-files.txt; StarMap.API/0Harmony are NOT included (the StarMap launcher provides them).
 param(
-    [string]$Version = "1.0.1",
+    [string]$Version = "1.0.2",
     [string]$GameBuild = ""
 )
 $ErrorActionPreference = "Stop"

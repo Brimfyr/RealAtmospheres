@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2 - 2026-09-23
+
+### Fixed
+
+- Animated haze on Pluto, Titan and Triton follows simulation time again: it freezes when paused and speeds up under time warp.
+
 ## 1.0.1 - 2026-09-20
 
 ### Added

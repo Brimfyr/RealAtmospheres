@@ -217,8 +217,34 @@ internal static class Patches
     // Sim-time injection (cached reflection).
     private static FieldInfo? _pushConstantField, _ozoneExtentField;
     private static MethodInfo? _getElapsedSimTime;
+    private static bool _simClockLookedUp;
     private static PropertyInfo? _simTimeMinutes;
     private static Type? _universeType;
+
+    /// <summary>
+    /// The simulation clock, whichever name this build gives it.
+    ///
+    /// It was GetElapsedSimTime when this was written and is GetElapsedTime now. Because the
+    /// lookup fails soft, the rename cost the haze its sim link silently: it kept animating on
+    /// wall-clock time, so it neither froze on pause nor scaled with time-warp, and nothing
+    /// said so. Both names are tried, and a build with neither says so in the log.
+    /// </summary>
+    private static MethodInfo? SimClock()
+    {
+        if (_simClockLookedUp) return _getElapsedSimTime;
+        _simClockLookedUp = true;
+
+        _universeType ??= AccessTools.TypeByName("KSA.Universe");
+        if (_universeType != null)
+            foreach (string name in new[] { "GetElapsedTime", "GetElapsedSimTime" })
+            {
+                _getElapsedSimTime = AccessTools.Method(_universeType, name);
+                if (_getElapsedSimTime != null) return _getElapsedSimTime;
+            }
+
+        ShadowBuilder.Log("WARN: no simulation clock found; haze animation falls back to wall-clock time");
+        return null;
+    }
 
     /// <summary>Postfix on AtmosphereRenderer.PrepareAtmosphereData: for Pluto (identified by
     /// mean radius, the same key the shader uses), overwrite the push constant's OzoneExtent
@@ -243,9 +269,7 @@ internal static class Patches
                        || Math.Abs(meanRadius - 1353400.0) < 5000.0;   // Triton
             if (!isHaze) return;
 
-            _universeType ??= AccessTools.TypeByName("KSA.Universe");
-            _getElapsedSimTime ??= _universeType == null ? null : AccessTools.Method(_universeType, "GetElapsedSimTime");
-            object? simTime = _getElapsedSimTime?.Invoke(null, null);
+            object? simTime = SimClock()?.Invoke(null, null);
             if (simTime == null) return;
             _simTimeMinutes ??= simTime.GetType().GetProperty("Minutes");
             if (_simTimeMinutes?.GetValue(simTime) is not double minutes) return;
