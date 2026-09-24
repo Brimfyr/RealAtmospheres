@@ -1338,7 +1338,7 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
     vec3 spinAxis = atmosphereData.bottomRadius > 2000000.0
         ? normalize(vec3(0.0, 1.0, 0.05))
         : normalize(vec3(-0.68, 0.62, -0.39));
-    // SIM-LINKED time: the renderer injects elapsed SIM seconds into ozoneExtent for Pluto
+    // SIM-LINKED time: the mod injects elapsed SIM seconds into ozoneExtent for the haze bodies
     // (freezes on pause, scales with time-warp). Falls back to wall-clock if not injected.
     float animT = atmosphereData.ozoneExtent > 0.5 ? atmosphereData.ozoneExtent : global.camera.time;
     // Realistic high-altitude rotation: Pluto spins once per 6.39 d (omega ~1.14e-5 rad/s);
@@ -1404,9 +1404,10 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
 // ---- end horizontal haze-band march ----
 """;
 
-    // insert the march function before main()
+    // insert the march function before main(). Only the opening is matched: 2026.9.22 added a
+    // ring-shadow shared-memory write as main()'s first line.
     public const string HazeBandMarchAnchor =
-        "void main()\n{\n    ivec2 dim = imageSize(resultImage);";
+        "void main()\n{";
 
     // stock sky-color path (only reached for sky pixels; the crescent limb)
     public static readonly string HazeBandSkyStock =

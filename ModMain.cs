@@ -98,16 +98,27 @@ public class ModMain
         harmony.Patch(fromFile,
             prefix: new HarmonyMethod(typeof(Patches), nameof(Patches.ShaderFromFilePrefix)));
 
-        // Sim-linked haze animation: inject wrapped elapsed SIM seconds into the atmosphere
-        // push constant's OzoneExtent for Pluto (which doesn't use ozone), so the haze reads a
-        // clock that freezes on pause and scales with time-warp. Fail-soft: if the method isn't
-        // found or the postfix throws, the shader falls back to wall-clock time.
+        // Sim-linked haze animation: while the renderer builds a haze body's atmosphere data, its
+        // ozone extent reads as elapsed SIM seconds, which the haze march takes as its clock
+        // (freezes on pause, scales with time warp). Fail-soft: without the method the shader
+        // runs on the body's own extent or wall-clock time.
         Type? atmoRenderer = AccessTools.TypeByName("KSA.AtmosphereRenderer");
-        MethodInfo? prepAtmo = atmoRenderer == null ? null : AccessTools.Method(atmoRenderer, "PrepareAtmosphereData");
-        if (prepAtmo != null)
-            harmony.Patch(prepAtmo, postfix: new HarmonyMethod(typeof(Patches), nameof(Patches.PrepareAtmospherePostfix)));
+        MethodInfo? fillAtmo = atmoRenderer == null ? null : AccessTools.Method(atmoRenderer, "FillPlanetAtmosphereData");
+        if (fillAtmo != null && Patches.CanInjectSimTime(fillAtmo))
+        {
+            try
+            {
+                harmony.Patch(fillAtmo,
+                    prefix: new HarmonyMethod(typeof(Patches), nameof(Patches.FillAtmosphereDataPrefix)),
+                    postfix: new HarmonyMethod(typeof(Patches), nameof(Patches.FillAtmosphereDataPostfix)));
+            }
+            catch (Exception e)
+            {
+                ShadowBuilder.Log($"WARN: could not hook FillPlanetAtmosphereData ({e.GetType().Name}); haze animation is not sim-linked");
+            }
+        }
         else
-            ShadowBuilder.Log("WARN: AtmosphereRenderer.PrepareAtmosphereData not found; haze animation uses wall-clock time");
+            ShadowBuilder.Log("WARN: AtmosphereRenderer.FillPlanetAtmosphereData(body, atmoRef) not found; haze animation is not sim-linked");
 
         ShadowBuilder.Log("installed (XML + shader redirects active)");
     }
@@ -215,7 +226,8 @@ internal static class Patches
     private static bool _logged2DCloud;
 
     // Sim-time injection (cached reflection).
-    private static FieldInfo? _pushConstantField, _ozoneExtentField;
+    private static FieldInfo? _distanceValue;
+    private static MemberInfo? _visualMember, _ozoneMember, _extentMember;
     private static MethodInfo? _getElapsedSimTime;
     private static bool _simClockLookedUp;
     private static PropertyInfo? _simTimeMinutes;
@@ -246,48 +258,101 @@ internal static class Patches
         return null;
     }
 
-    /// <summary>Postfix on AtmosphereRenderer.PrepareAtmosphereData: for Pluto (identified by
-    /// mean radius, the same key the shader uses), overwrite the push constant's OzoneExtent
-    /// with wrapped elapsed SIM seconds, so the haze animation is sim-linked (freezes on pause,
-    /// scales with time-warp). Pluto doesn't use ozone; every other body is left untouched.
-    /// Fail-soft: any missing member or exception leaves OzoneExtent alone and the shader uses
-    /// wall-clock time.</summary>
-    public static void PrepareAtmospherePostfix(object __instance, object planetInstance)
+    /// <summary>Whether FillPlanetAtmosphereData still takes the two arguments the prefix reads.
+    /// Harmony injects them by name and throws at patch time on a missing one, which would take
+    /// the rest of the mod down with it, so this is checked before patching.</summary>
+    public static bool CanInjectSimTime(MethodInfo fill)
     {
+        string?[] names = fill.GetParameters().Select(p => p.Name).ToArray();
+        return names.Contains("body") && names.Contains("atmoRef");
+    }
+
+    /// <summary>
+    /// Prefix on AtmosphereRenderer.FillPlanetAtmosphereData, which builds the atmosphere's
+    /// uniform data from the body's AtmosphereReference. For the haze bodies (by mean radius,
+    /// the key RaBodyHasHaze uses in the shader) the ozone extent it copies reads as elapsed SIM
+    /// seconds for the length of the call. The haze march takes that as its clock, so the haze
+    /// freezes on pause and scales with time warp. The postfix puts the body's own value back.
+    ///
+    /// This used to write the renderer's _atmospherePushConstant, which went when the atmosphere
+    /// data moved into a uniform buffer. That failed as softly as the clock rename did, so the
+    /// haze ran on wall-clock time on Pluto and Triton and stood still on Titan, whose stock
+    /// extent (20 km) the shader took as a fixed time.
+    ///
+    /// The swap is harmless on these bodies: Pluto and Triton have no ozone, and Titan's is too
+    /// thin to matter at any extent. Nothing else reads the extent while the call runs.
+    /// </summary>
+    public static void FillAtmosphereDataPrefix(object body, object atmoRef, out object? __state)
+    {
+        __state = null;
         try
         {
-            object? body = planetInstance.GetType().GetProperty("AtmosphericBody")?.GetValue(planetInstance)
-                        ?? planetInstance.GetType().GetField("AtmosphericBody")?.GetValue(planetInstance);
-            if (body == null) return;
-            object? mr = body.GetType().GetProperty("MeanRadius")?.GetValue(body)
-                      ?? body.GetType().GetField("MeanRadius")?.GetValue(body);
-            if (mr is not double meanRadius) return;
-            // Inject for every haze body (must match RaBodyHasHaze in the shader). Overwriting
-            // OzoneExtent is safe on these: Pluto/Triton have no ozone, Titan's ozone is ~0.
-            bool isHaze = Math.Abs(meanRadius - 1188300.0) < 5000.0    // Pluto
-                       || Math.Abs(meanRadius - 2575500.0) < 5000.0    // Titan
-                       || Math.Abs(meanRadius - 1353400.0) < 5000.0;   // Triton
-            if (!isHaze) return;
-
-            object? simTime = SimClock()?.Invoke(null, null);
-            if (simTime == null) return;
-            _simTimeMinutes ??= simTime.GetType().GetProperty("Minutes");
-            if (_simTimeMinutes?.GetValue(simTime) is not double minutes) return;
-            double seconds = minutes * 60.0;
-            // NO wrap: wrapping caused a periodic jump (every wrap-period/simSpeed seconds). float32
-            // carries the raw elapsed seconds smoothly for any realistic sim duration; +1000 just
-            // keeps it > 0.5 so the shader's "injected?" fallback check passes at sim start.
-            float animT = (float)(seconds + 1000.0);
-
-            _pushConstantField ??= AccessTools.Field(__instance.GetType(), "_atmospherePushConstant");
-            object? pc = _pushConstantField?.GetValue(__instance);
-            if (pc == null) return;
-            _ozoneExtentField ??= AccessTools.Field(pc.GetType(), "OzoneExtent");
-            if (_ozoneExtentField == null) return;
-            _ozoneExtentField.SetValue(pc, animT);          // pc is a boxed struct copy
-            _pushConstantField!.SetValue(__instance, pc);   // write the modified struct back
+            if (body.GetType().GetProperty("MeanRadius")?.GetValue(body) is not double meanRadius
+                || !IsHazeBody(meanRadius))
+                return;
+            float? clock = HazeClockSeconds();
+            if (clock == null) return;
+            object? extent = OzoneExtent(atmoRef);
+            if (extent == null) return;
+            __state = SetDistanceMetres(extent, clock.Value);
         }
-        catch { /* fail-soft: shader falls back to wall-clock time */ }
+        catch { __state = null; }
+    }
+
+    public static void FillAtmosphereDataPostfix(object? __state)
+    {
+        if (__state is DistanceSwap swap)
+            _distanceValue?.SetValue(swap.Reference, swap.Metres);
+    }
+
+    /// <summary>The haze bodies, as RaBodyHasHaze in AtmosphereData.glsl picks them out.</summary>
+    public static bool IsHazeBody(double meanRadius) =>
+        Math.Abs(meanRadius - 1188300.0) < 5000.0      // Pluto
+        || Math.Abs(meanRadius - 2575500.0) < 5000.0   // Titan
+        || Math.Abs(meanRadius - 1353400.0) < 5000.0;  // Triton
+
+    /// <summary>Elapsed simulation seconds for the haze clock, or null without a clock. Not
+    /// wrapped: wrapping made the haze jump once per period. A float carries the raw seconds
+    /// smoothly for any realistic save, and the 1000 s offset keeps it above the shader's 0.5
+    /// "injected?" threshold at the very start of a game.</summary>
+    public static float? HazeClockSeconds()
+    {
+        object? simTime = SimClock()?.Invoke(null, null);
+        if (simTime == null) return null;
+        _simTimeMinutes ??= simTime.GetType().GetProperty("Minutes");
+        if (_simTimeMinutes?.GetValue(simTime) is not double minutes) return null;
+        return (float)(minutes * 60.0 + 1000.0);
+    }
+
+    /// <summary>atmoRef.Visual.Ozone.Extent, a DistanceReference, or null if the chain moved.</summary>
+    public static object? OzoneExtent(object atmoRef)
+    {
+        object? visual = Member(ref _visualMember, atmoRef, "Visual");
+        object? ozone = visual == null ? null : Member(ref _ozoneMember, visual, "Ozone");
+        return ozone == null ? null : Member(ref _extentMember, ozone, "Extent");
+    }
+
+    /// <summary>Sets a DistanceReference to a value in metres (what InMeters() returns) and
+    /// returns what it held, for the postfix to restore. Null if the reference changed shape.</summary>
+    public static object? SetDistanceMetres(object distance, double metres)
+    {
+        _distanceValue ??= AccessTools.Field(distance.GetType(), "_value");
+        if (_distanceValue?.GetValue(distance) is not double held) return null;
+        _distanceValue.SetValue(distance, metres);
+        return new DistanceSwap(distance, held);
+    }
+
+    private sealed record DistanceSwap(object Reference, double Metres);
+
+    private static object? Member(ref MemberInfo? cached, object owner, string name)
+    {
+        cached ??= (MemberInfo?)AccessTools.Field(owner.GetType(), name) ?? AccessTools.Property(owner.GetType(), name);
+        return cached switch
+        {
+            FieldInfo f => f.GetValue(owner),
+            PropertyInfo p => p.GetValue(owner),
+            _ => null,
+        };
     }
 
     /// <summary>Full path with consistent separators; relative paths resolve

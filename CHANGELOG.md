@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3 - 2026-09-24
+
+### Fixed
+
+- Haze bands on Pluto, Titan and Triton missing on KSA v2026.9.22.5482.
+- Animated haze on Pluto, Titan and Triton follows simulation time: it freezes when paused and speeds up under time warp. The 1.0.2 fix for this did not take effect, and Titan's haze did not move at all.
+
 ## 1.0.2 - 2026-09-23
 
 ### Fixed
