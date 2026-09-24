@@ -82,7 +82,7 @@ No game files are modified. At launch the mod builds patched copies of the game'
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="saturn-low.jpg"]1987\[/ATTACH]
+\[ATTACH type="full" alt="saturn-low.jpg"]2020\[/ATTACH]
 
 \[/SPOILER]
 
