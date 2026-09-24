@@ -5,8 +5,8 @@ namespace RealAtmospheres;
 /// <summary>
 /// Builds the shadow content tree inside the mod folder at every launch:
 ///   ShadowContent\Core\Astronomicals.xml   (Mars atmosphere v4 + MarsCirrus layer)
-///   ShadowContent\Core\Shaders\**          (full copy; AtmosphereFunctions.glsl and
-///                                           Clouds\2DCloud.comp patched)
+///   ShadowContent\Core\Shaders\**          (full copy; atmosphere and cloud shaders
+///                                           patched, see Build)
 /// The Harmony prefixes then redirect the game's reads into this tree. The full
 /// Shaders copy matters: shaderc includes resolve relative to the requesting
 /// file's directory, so once a top-level shader path is redirected here, all of
@@ -60,6 +60,7 @@ internal static class ShadowBuilder
             PatchCloudTerminator) ? 1 : 0;
         PatchMarsDensity(dstShaders);
         PatchHazeBandMarch(dstShaders);
+        PatchCloudRingShadows(dstShaders);
         ShadowShadersRoot = dstShaders;
         Log($"shader tree ready ({shaderPatches}/2 patches applied) -> {dstShaders}");
 
@@ -442,6 +443,39 @@ internal static class ShadowBuilder
         s = s.Replace(Payloads.HazeBandSkyStock, Payloads.HazeBandSkyPatch);
         File.WriteAllText(path, s);
         Log("horizontal haze-band march applied (sky)");
+    }
+
+    // Give both cloud passes the rings' shadow, which the game (2026.9.22) draws on the atmosphere
+    // and the surface only: our opaque Saturn deck covered it. Builds without ring data in the
+    // atmosphere UBO have nothing to shadow with, so they are passed over without a warning.
+    private static void PatchCloudRingShadows(string shadersDir)
+    {
+        string uboPath = Path.Combine(shadersDir, "Atmosphere", "AtmosphereDataUbo.glsl");
+        if (!File.Exists(Path.Combine(shadersDir, "Common", "RingShadows.glsl"))
+            || !File.Exists(uboPath) || !ReadLf(uboPath).Contains("ringTextureId"))
+        {
+            Log("cloud ring shadows: this game build has none to add to");
+            return;
+        }
+
+        int applied = 0;
+        foreach (var (file, stock, patched) in Payloads.CloudRingShadowSites)
+        {
+            string path = Path.Combine(shadersDir, "Clouds", file);
+            if (!File.Exists(path)) { Log($"WARN: {file} missing, skipping its ring shadows"); continue; }
+            string s = ReadLf(path);
+            if (s.Contains(Payloads.CloudRingShadowMarker)) { applied++; continue; }
+
+            if (CountOf(s, Payloads.CloudMainAnchor) != 1 || CountOf(s, stock) != 1)
+            { Log($"WARN: {file} main() or eclipse anchor not found, skipping its ring shadows"); continue; }
+
+            s = s.Replace(Payloads.CloudMainAnchor,
+                Payloads.CloudRingShadowFunc.Trim('\n') + "\n\n" + Payloads.CloudMainAnchor);
+            s = s.Replace(stock, patched);
+            File.WriteAllText(path, s);
+            applied++;
+        }
+        Log($"cloud ring shadows applied ({applied}/{Payloads.CloudRingShadowSites.Length})");
     }
 
     private static string PatchCloudTerminator(string s)

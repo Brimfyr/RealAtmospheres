@@ -1471,4 +1471,77 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
         // fade smoothly across ~11 deg of solar zenith instead.
         color.rgb *= smoothstep(-0.12, 0.08, dot(normalize(cloudPosition - planetPosition), lightDirection));
 """.TrimEnd('\n');
+
+    // ---------------- 2DCloud.comp + RaymarchCloud.comp: the rings' shadow ----------------
+    // KSA 2026.9.22 shades the atmosphere and the surface under a planet's rings, but not its
+    // clouds, so an opaque deck (ours on Saturn) covers the shadow. Both cloud passes get the same
+    // transmittance, applied where they apply the eclipse shadow.
+
+    public const string CloudRingShadowMarker = "RaCloudRingShadow(";
+    public const string CloudMainAnchor = "void main()\n{";
+
+    // inserted before main(); needs atmosphereDataUbo and the bindless set, which both passes have
+    public static readonly string CloudRingShadowFunc =
+"""
+// ---- Real Atmospheres: the rings' shadow on clouds ----
+// Same ring texture and transmittance as Atmosphere.comp. A compute shader has no derivatives,
+// so the mip comes from how far the ring coordinate moves across one pixel, traced at two
+// neighbouring points.
+#include "../Common/RingShadows.glsl"
+
+float RaRingCoord(vec3 position, vec3 planetPosition, vec3 directionToSun, vec3 ringNormal,
+    float innerRadius, float invWidth)
+{
+    vec3 planetToHit;
+    TraceToRingPlane(position, planetPosition, directionToSun, ringNormal, planetToHit);
+    return (length(planetToHit) - innerRadius) * invWidth;
+}
+
+// Sunlight let through by the rings at a camera-relative position; 1.0 for a planet without them
+float RaCloudRingShadow(vec3 position)
+{
+    if (atmosphereDataUbo.useRingShadows == 0)
+        return 1.0;
+
+    vec3 planetPosition = atmosphereDataUbo.planetPositionAndPackedScreenStartCoords.xyz;
+    vec3 directionToSun = normalize(global.lighting.sunPosition.xyz - planetPosition);
+    vec3 ringNormal = atmosphereDataUbo.ringNormalAndInnerRadius.xyz;
+    float innerRadius = atmosphereDataUbo.ringNormalAndInnerRadius.w;
+    float outerRadius = atmosphereDataUbo.ringOuterRadius;
+    float invWidth = 1.0 / max(outerRadius - innerRadius, 1.0);
+
+    // One pixel at this distance, along the camera's right and up axes
+    float pixel = 2.0 * length(position) / (abs(global.camera.projection[1][1]) * float(global.camera.screenHeight));
+    vec3 right = global.camera.inverseView[0].xyz;
+    vec3 up = global.camera.inverseView[1].xyz;
+
+    float coord = RaRingCoord(position, planetPosition, directionToSun, ringNormal, innerRadius, invWidth);
+    float stepX = RaRingCoord(position + right * pixel, planetPosition, directionToSun, ringNormal, innerRadius, invWidth) - coord;
+    float stepY = RaRingCoord(position + up * pixel, planetPosition, directionToSun, ringNormal, innerRadius, invWidth) - coord;
+    float texels = max(abs(stepX), abs(stepY)) * float(textureSize(sampler2D(
+        globalTextures[atmosphereDataUbo.ringTextureId], samplers[atmosphereDataUbo.ringSamplerId]), 0).x);
+
+    return GetRingShadowTransmittance(globalTextures[atmosphereDataUbo.ringTextureId],
+        samplers[atmosphereDataUbo.ringSamplerId], position, planetPosition, directionToSun, ringNormal,
+        innerRadius, outerRadius, log2(max(texels, 1.0)));
+}
+// ---- end rings' shadow on clouds ----
+""";
+
+    // (file, the stock eclipse lines, the same lines followed by the rings' shadow)
+    public static readonly (string File, string Stock, string Patched)[] CloudRingShadowSites =
+    {
+        ("2DCloud.comp",
+         "        float eclipseShadow = getCelestialShadow(cloudPosition, global.lighting.sunPosition);\n"
+         + "        color.rgb *= eclipseShadow;",
+         "        float eclipseShadow = getCelestialShadow(cloudPosition, global.lighting.sunPosition);\n"
+         + "        color.rgb *= eclipseShadow;\n"
+         + "        color.rgb *= RaCloudRingShadow(cloudPosition);  // Real Atmospheres: the rings' shadow"),
+        ("RaymarchCloud.comp",
+         "        float eclipseShadow = getCelestialShadow(averageCloudPosition, global.lighting.sunPosition);\n"
+         + "        cloudColor.rgb *= eclipseShadow;",
+         "        float eclipseShadow = getCelestialShadow(averageCloudPosition, global.lighting.sunPosition);\n"
+         + "        cloudColor.rgb *= eclipseShadow;\n"
+         + "        cloudColor.rgb *= RaCloudRingShadow(averageCloudPosition);  // Real Atmospheres: the rings' shadow"),
+    };
 }
