@@ -458,13 +458,16 @@ internal static class ShadowBuilder
             return;
         }
 
-        int applied = 0;
+        int applied = 0, byGame = 0;
         foreach (var (file, stock, patched) in Payloads.CloudRingShadowSites)
         {
             string path = Path.Combine(shadersDir, "Clouds", file);
             if (!File.Exists(path)) { Log($"WARN: {file} missing, skipping its ring shadows"); continue; }
             string s = ReadLf(path);
             if (s.Contains(Payloads.CloudRingShadowMarker)) { applied++; continue; }
+
+            // A game build that shadows its clouds itself would get the shadow twice
+            if (s.Contains("RingShadow") || s.Contains("useRingShadows")) { byGame++; continue; }
 
             if (CountOf(s, Payloads.CloudMainAnchor) != 1 || CountOf(s, stock) != 1)
             { Log($"WARN: {file} main() or eclipse anchor not found, skipping its ring shadows"); continue; }
@@ -475,7 +478,8 @@ internal static class ShadowBuilder
             File.WriteAllText(path, s);
             applied++;
         }
-        Log($"cloud ring shadows applied ({applied}/{Payloads.CloudRingShadowSites.Length})");
+        Log($"cloud ring shadows applied ({applied}/{Payloads.CloudRingShadowSites.Length}"
+            + (byGame > 0 ? $", {byGame} already shadowed by the game" : "") + ")");
     }
 
     private static string PatchCloudTerminator(string s)
