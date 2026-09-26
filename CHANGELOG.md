@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.4 - 2026-09-26
+
+### Fixed
+
+- The game failed to start on Windows set to a number format with a decimal comma, such as German, French or Spanish.
+
 ## 1.0.3 - 2026-09-24
 
 ### Fixed

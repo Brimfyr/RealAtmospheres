@@ -7,7 +7,7 @@
 # RealAtmospheres\ folder, because KSA uses the folder name as the mod id. Ships exactly the files in
 # release-files.txt; StarMap.API/0Harmony are NOT included (the StarMap launcher provides them).
 param(
-    [string]$Version = "1.0.3",
+    [string]$Version = "1.0.4",
     [string]$GameBuild = ""
 )
 $ErrorActionPreference = "Stop"
@@ -69,7 +69,8 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 [System.IO.Compression.ZipFile]::CreateFromDirectory($stage, $zip, [System.IO.Compression.CompressionLevel]::Optimal, $true)
 
 $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-Set-Content -Path "$zip.sha256" -Value ("{0}  {1}" -f $hash, (Split-Path $zip -Leaf)) -Encoding ascii
+# One LF-terminated line: with Set-Content's CRLF, `sha256sum -c` reads the name with a trailing CR.
+[System.IO.File]::WriteAllText($zip + ".sha256", ("{0}  {1}`n" -f $hash, (Split-Path $zip -Leaf)))
 
 $sizeMb = (Get-Item $zip).Length / 1MB
 Write-Host ("packaged {0} ({1:N1} MB, {2} assets) -> {3}" -f $Version, $sizeMb, $assets.Count, $zip)
