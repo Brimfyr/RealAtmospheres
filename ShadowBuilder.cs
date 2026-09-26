@@ -1,3 +1,4 @@
+using System.Globalization;
 using RealModShared;
 
 namespace RealAtmospheres;
@@ -180,8 +181,13 @@ internal static class ShadowBuilder
             _         => 300.0
         };
         double loopHours = flowPeak * dispKm * 1000.0 / peakJetMs / 3600.0;
-        string disp = dispKm.ToString("0");
-        string loop = loopHours.ToString("0.###");
+        // Every number here goes into the XML, which the game reads in the invariant format.
+        // Under a decimal-comma culture (German, French, Spanish and most of Europe) the loop
+        // came out as 0,389, and the file holding it failed to load whole: Astronomicals.xml
+        // took the Sol template with it, and the game could not start.
+        var xml = CultureInfo.InvariantCulture;
+        string disp = dispKm.ToString("0", xml);
+        string loop = loopHours.ToString("0.###", xml);
 
         // Volumetric-to-2D fade band, as fractions of each planet's radius matching
         // stock Jupiter's (7.2% and 12.9%). Fading closer in makes the swap obvious.
@@ -198,16 +204,16 @@ internal static class ShadowBuilder
             .Replace("{VOLFLOWTEX}", hasFlow ? Payloads.GiantVolFlowTexPerPlanet : Payloads.GiantVolFlowTexJupiter)
             .Replace("{DISP}", disp)
             .Replace("{LOOP}", loop)
-            .Replace("{TRANSSTART}", transStart.ToString())
-            .Replace("{TRANSEND}", transEnd.ToString())
-            .Replace("{FLICKER}", (transEnd * 11 / 10).ToString())
+            .Replace("{TRANSSTART}", transStart.ToString(xml))
+            .Replace("{TRANSEND}", transEnd.ToString(xml))
+            .Replace("{FLICKER}", (transEnd * 11 / 10).ToString(xml))
             .Replace("{BODY}", body).Replace("{ASSETS}", assetsDir)
-            .Replace("{HEIGHT}", towerHeightM.ToString())
+            .Replace("{HEIGHT}", towerHeightM.ToString(xml))
             // the storm types rise above the deck; heights scale with the per-planet tower
             // Shorter than the deck, so the belt edges read as depressions in it rather
             // than towers above it. Anything taller would raise the layer top, and the
             // 2D billboard hangs from that.
-            .Replace("{HEIGHT_EDGE}", (towerHeightM * 9 / 20).ToString());
+            .Replace("{HEIGHT_EDGE}", (towerHeightM * 9 / 20).ToString(xml));
 ;
         Log($"{body} volumetric clouds added{(hasFlow ? $" + per-planet flowmap (2D + volumetric), disp {disp}km, loop {loop}h ({peakJetMs:0} m/s jets)" : "")}");
         return content[..ae] + block + content[ae..];
