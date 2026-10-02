@@ -652,9 +652,9 @@ def giant_gas(body, z, p, t):
 
 # ---- The giants' stratospheric hazes (visual) ------------------------------------------------------------
 # From afar a giant is its cloud layer's 2D shell, at the layer's top, and the gas above it. On Jupiter and Saturn the
-# shell stands at the top of the tropospheric haze (Saturn: 100 km, 52 mbar, where Cassini found its top, ~40 mbar
-# over the equator and ~150 mbar at mid-latitudes, Roman et al. 2013; Jupiter: 39 km, 144 mbar, the haze reaching
-# 150-300 mbar, Guerlet et al. 2020's review). Above it each has a thin stratospheric haze, which the gas alone leaves
+# shell stands at the visible edge (Saturn: 100 km, 52 mbar, where Cassini found the top of its tropospheric haze,
+# ~40 mbar over the equator and ~150 mbar at mid-latitudes, Roman et al. 2013; Jupiter: 68 km, 29 mbar, where its
+# stratospheric haze below turns opaque to a grazing view). Above it each has a thin stratospheric haze, which the gas alone leaves
 # out: faint looking down, it is optically thick along the limb, where it whitens the gas's blue rim. Each follows the
 # gas from the tropopause (100 mbar) to 1 mbar, as the retrievals assume, and its colour, absorption and phase
 # function (the game's lobe per channel) come from Mie theory on the measured particles:
@@ -667,7 +667,7 @@ def giant_gas(body, z, p, t):
 GIANT_HAZE = {
     "Saturn": dict(radius=58232000.0, tau09=0.01, r=0.10, v=0.10, n=1.43, shell=100.0,
                    ni=lambda lam: 0.001),
-    "Jupiter": dict(radius=69911000.0, tau09=0.03, r=0.40, v=0.10, n=1.43, shell=39.0,
+    "Jupiter": dict(radius=69911000.0, tau09=0.03, r=0.40, v=0.10, n=1.43, shell=67.8,
                     ni=lambda lam: math.exp(math.log(0.02) + (math.log(lam) - math.log(0.255))
                                             / (math.log(0.9) - math.log(0.255)) * (math.log(0.001) - math.log(0.02)))),
 }

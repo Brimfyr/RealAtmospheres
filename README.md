@@ -37,7 +37,7 @@ No game files are modified. At launch the mod builds patched copies of the game'
 
 ### Jupiter
 
-- Cloud decks at measured heights: lower deck −1 to 12 km, main deck 15 to 39 km, its tops at the top of the measured haze (about 150 mbar)
+- Cloud decks from −1 to 12 km and 15 to 68 km, the upper one reaching Jupiter's visible edge, where its measured haze turns opaque to a grazing view (about 30 mbar)
 - A thin stratospheric haze above the clouds, as Cassini measured it
 
 ### Saturn

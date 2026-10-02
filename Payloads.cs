@@ -1169,16 +1169,18 @@ $"""
 
     // ---------------- Astronomicals.xml: Jupiter clouds at realistic altitudes ----------------
     // The stock showcase decks (220 km base, towers to 770 km) forced a puffed-up
-    // atmosphere to envelope them. Rescaled to the measured cloud and haze heights
-    // (mesh = 1 bar): lower deck -1..+12 km, main deck 15..39 km. The main deck's
-    // tallest clouds reach the top of the upper tropospheric haze (150-300 mbar;
-    // ours 144 mbar at 39 km) and it reaches optical depth 1 at ~240 mbar (30 km),
-    // inside that haze, which reaches optical depth 1 near 280 mbar (Guerlet et al.
-    // 2020's review). Densities are multiplied by the same factor the heights shrank
-    // by (optical depth ~ density x thickness stays put); the raymarch steps and light
-    // distance, shared by both decks, suit the 13 km lower deck and the 24 km main one.
-    // Applied only inside the two Jupiter cloud layers' span. The 2D billboard hangs at
-    // the main deck's top (39 km).
+    // atmosphere to envelope them. Rescaled (mesh = 1 bar): lower deck -1..+12 km, main
+    // deck 15..68 km. The main deck's tallest clouds, and the 2D billboard at its top,
+    // reach Jupiter's visible edge: where its measured stratospheric haze turns opaque
+    // to a grazing line of sight (tangent optical depth 1-2 at 65-75 km, ~30 mbar;
+    // Zhang et al. 2013's haze, see make_flight_atmospheres.py). At the clouds' measured
+    // top (~150 mbar, 39 km) the measured gas above glowed as a blue ring along the limb
+    // (blue optical depth ~5 along it) that Jupiter's photos never show; above 68 km it
+    // is ~1. From above the deck looks solid at ~90 mbar (the measured haze reaches
+    // optical depth 1 near 280 mbar). Densities are multiplied by the same factor the
+    // heights shrank by (optical depth ~ density x thickness stays put); the raymarch
+    // steps and light distance, shared by both decks, suit both. Applied only inside the
+    // two Jupiter cloud layers' span.
 
     public const string JupiterCloudsMarker = "Jupiter clouds rescaled to realistic altitudes";
     public const string JupiterCloudsMarkerComment =
@@ -1202,14 +1204,14 @@ $"""
         ("<StartAltitude M=\"-4000\" />\n                        <Height M=\"220000\" />\n                        <Density Value=\"0.0007999999797903001\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1\" />",
          "<StartAltitude M=\"-1000\" />\n                        <Height M=\"13000\" />\n                        <Density Value=\"0.0136\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1\" />", 1),
         // main deck: base 220 km -> 15 km (raised so vortex roots clear the
-        // mesh - black spots fix); heights /22.9 (the earlier /5.73 cut, whose tops
-        // reached ~111 km, 4.5 mbar, in the stratosphere, then x0.25 to the measured
-        // haze heights: tops 39 km), densities scaled inversely
+        // mesh - black spots fix); heights /10.4 (the earlier /5.73 cut, whose tops
+        // reached ~111 km, 4.5 mbar, in the stratosphere, then x0.55 to Jupiter's
+        // visible edge: tops 68 km), densities scaled inversely
         ("<StartAltitude M=\"220000\" />", "<StartAltitude M=\"15000\" />",  4),
-        ("<Height M=\"440000\" />",        "<Height M=\"15500\" />",         1),
-        ("<Height M=\"550000\" />",        "<Height M=\"24000\" />",         1),
-        ("<Density Value=\"0.0000081\" />","<Density Value=\"0.0002276\" />", 1),
-        ("<Density Value=\"0.00035\" />",  "<Density Value=\"0.008\" />",    1),
+        ("<Height M=\"440000\" />",        "<Height M=\"34100\" />",         1),
+        ("<Height M=\"550000\" />",        "<Height M=\"52800\" />",         1),
+        ("<Density Value=\"0.0000081\" />","<Density Value=\"0.0001035\" />", 1),
+        ("<Density Value=\"0.00035\" />",  "<Density Value=\"0.003636\" />", 1),
         // The two storm types carry height, density and brightness in one edit each,
         // because every anchor is checked against the pristine span before anything is
         // applied: an anchor written against already-edited text skips the whole rescale.
@@ -1220,20 +1222,20 @@ $"""
         // bright: lower these. Still dark: raise the storm heights and drop their
         // densities in step, so the optical depth holds.
         ("<Height M=\"55000\" />\n                        <Density Value=\"0.00018\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />",
-         "<Height M=\"2500\" />\n                        <Density Value=\"0.00412\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
+         "<Height M=\"5500\" />\n                        <Density Value=\"0.001873\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
         ("<Height M=\"330000\" />\n                        <Density Value=\"0.0004\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />",
-         "<Height M=\"11500\" />\n                        <Density Value=\"0.01116\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
+         "<Height M=\"25300\" />\n                        <Density Value=\"0.005073\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
         // raymarch scale: steps and light reach shrink with the layer thickness
         ("<Size M=\"10000\" />",           "<Size M=\"1500\" />",            2),
         ("<MaxSize M=\"175000\" />",       "<MaxSize M=\"25000\" />",        2),
         ("<LightDistance M=\"120000\" />", "<LightDistance M=\"17500\" />",  2),
-        // Noise scale follows the rescale: /22.9 for the main deck, /5.5 for the lower
+        // Noise scale follows the rescale: /10.4 for the main deck, /5.5 for the lower
         // one, which puts noise/height back in stock's 0.5-1.3 band (7.3 for the vortex
         // core, stock 7.6). Without this the noise is far larger than the deck is deep,
         // so storms render as hard-edged slabs instead of being eroded into shape.
         // Must stay after the per-type edits above: those carry the stock NoiseScale
         // through untouched, so the counts here still match.
-        ("<NoiseScale M=\"420000\" />",    "<NoiseScale M=\"18250\" />",     4),
+        ("<NoiseScale M=\"420000\" />",    "<NoiseScale M=\"40150\" />",     4),
         ("<NoiseScale M=\"120000\" />",    "<NoiseScale M=\"7000\" />",     2),
         // 2D billboards (user-tuned): JupiterClouds 0.95 (its 2D block is the
         // one with a FlowMap - unique discriminator), JupiterLowerClouds 1.
@@ -2195,6 +2197,30 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
         // fade smoothly across ~11 deg of solar zenith instead.
         color.rgb *= smoothstep(-0.12, 0.08, dot(normalize(cloudPosition - planetPosition), lightDirection));
 """.TrimEnd('\n');
+
+    // ---------------- 2DCloud.comp: skylight by the map's colour ----------------
+    // A 2D layer is lit by the sun through its texture's colour, and by the sky's light, which the stock adds as it
+    // stands. That is right for white clouds, and the engine's constant is the physical one for a white surface
+    // (0.5 x 0.6 x 10 x 0.12 = 3.24 per unit sky radiance and sun, against pi x 0.12 x 9 / 9 = 3.39). But a giant's
+    // map is its albedo, and the skylight it reflects follows that albedo, as the game's volumetric clouds already
+    // have it (skyCloudComponent += localColor ...). Added evenly, the sky laid a pale veil over the map's detail
+    // that grew with the sky above the layer: under Jupiter's measured gas and haze, a fifth of its contrast near the
+    // centre. So the skylight is weighted by the texture's own colour, taken before the layer's tint: white masks
+    // (Earth, Venus, Titan, Mars, Triton) light exactly as before. Both edits apply, or neither.
+    public const string SkylightMarker = "2D cloud skylight by the map's colour";
+
+    public const string SkylightColourAnchor =
+        "    // Apply cloud's own color\n    color.rgb *= unpackRGBA(uboCloudLayer.twoDimensionalCloudColor).rgb;";
+
+    public const string SkylightColourPatched =
+        "    // PATCHED (2D cloud skylight by the map's colour): the texture's colour, before the layer's tint\n" +
+        "    vec3 raMapColour = color.rgb;\n\n" + SkylightColourAnchor;
+
+    public const string SkylightAddAnchor =
+        "        color.rgb += skyAmbientInscatter * TWO_DIMENSIONAL_CLOUD_BRIGHTNESS * 10.0;";
+
+    public const string SkylightAddPatched =
+        "        color.rgb += raMapColour * skyAmbientInscatter * TWO_DIMENSIONAL_CLOUD_BRIGHTNESS * 10.0;";
 
     // ---------------- 2DCloud.comp + RaymarchCloud.comp: the rings' shadow ----------------
     // KSA 2026.9.22 shades the atmosphere and the surface under a planet's rings, but not its

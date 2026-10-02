@@ -67,7 +67,7 @@ internal static class ShadowBuilder
             PatchAtmosphereFunctions) ? 1 : 0;
         shaderPatches += PatchFile(
             Path.Combine(dstShaders, "Clouds", "2DCloud.comp"),
-            PatchCloudTerminator) ? 1 : 0;
+            s => PatchCloudSkylight(PatchCloudTerminator(s))) ? 1 : 0;
         PatchMarsDensity(dstShaders);
         PatchRayleighColour(dstShaders);
         PatchHazeBandMarch(dstShaders);
@@ -657,6 +657,21 @@ internal static class ShadowBuilder
             return s;
         }
         return s.Replace(Payloads.TerminatorAnchor, Payloads.TerminatorFade);
+    }
+
+    private static string PatchCloudSkylight(string s)
+    {
+        if (s.Contains(Payloads.SkylightMarker))
+            return s; // already patched
+
+        int colour = CountOf(s, Payloads.SkylightColourAnchor), add = CountOf(s, Payloads.SkylightAddAnchor);
+        if (colour != 1 || add != 1)
+        {
+            Log($"WARN: 2DCloud.comp skylight anchors found {colour}x and {add}x (expected 1 each), skipping");
+            return s;
+        }
+        return s.Replace(Payloads.SkylightColourAnchor, Payloads.SkylightColourPatched)
+                .Replace(Payloads.SkylightAddAnchor, Payloads.SkylightAddPatched);
     }
 
     // ---------------- helpers ----------------

@@ -58,7 +58,7 @@ Venus's lower haze follows the aerosol extinction the Venera 13 and 14 descent p
 
 The giants' gas strength uses each gas's refractivity (H₂: Peck & Hung 1977; He: Mansfield & Peck 1969) and the composition at 1 bar: Jupiter from the Galileo probe (von Zahn et al. 1998; Wong et al. 2004), Saturn (Koskinen & Guerlet 2018; Fletcher et al. 2009), Uranus (Conrath et al. 1987) and Neptune (Conrath et al. 1991).
 
-Saturn's cloud top sits where Cassini found the top of its tropospheric haze (Roman et al. 2013), and its stratospheric haze follows the particles and optical depth Hubble measured (Sanz-Requena et al. 2019) over the extent Pérez-Hoyos et al. (2005) found. Jupiter's stratospheric haze follows Cassini's (Zhang et al. 2013), and its cloud heights the measurements reviewed by Guerlet et al. (2020).
+Saturn's cloud top sits where Cassini found the top of its tropospheric haze (Roman et al. 2013), and its stratospheric haze follows the particles and optical depth Hubble measured (Sanz-Requena et al. 2019) over the extent Pérez-Hoyos et al. (2005) found. Jupiter's stratospheric haze follows Cassini's (Zhang et al. 2013, as Guerlet et al. 2020 use it), and its clouds reach the height where that haze turns opaque to a grazing view.
 
 Triton's haze is Mie theory on the haze particles Voyager 2's photometry found (Rages & Pollack 1992, as tabulated by Ohno et al. 2021), checked against its optical depth, colour and forward scattering from Voyager (Pollack et al. 1990; Hillier et al. 1990, 1991).
 
