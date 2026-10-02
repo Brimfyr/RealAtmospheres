@@ -6,6 +6,8 @@
 
 - Flight atmospheres from measured profiles. Drag and engine back-pressure on Earth, Venus, Mars, Titan, Jupiter, Saturn, Uranus, Neptune, Triton and Pluto now follow real density and pressure instead of the game's single exponential, and each atmosphere's edge moves to where the real one thins out (Titan 996 km instead of 480, Venus 143 km instead of 455). Uranus and Neptune had the game's Earth values.
 
+- The game's Solar System + Interstellar system (KSA 2026.10) gets the same Titan, Pluto, Triton and Neptune as the Solar System.
+
 ### Changed
 
 - Earth's sky uses the density of the US Standard Atmosphere 1976, so its blue limb thins out at the right height.

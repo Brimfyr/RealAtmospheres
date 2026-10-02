@@ -30,8 +30,11 @@ internal static class SharedShadow
 {
     /// <summary>Core files both mods may patch (kept in the shared shadow). Astronomicals.xml
     /// is redirected via Mod.LoadAssetBundles; the SolSystem* templates via Mod.LoadSystems.
-    /// Callers split the returned map by filename to drive the right redirect.</summary>
-    public static readonly string[] SharedFiles = { "Astronomicals.xml", "SolSystem.xml", "SolSystemDense.xml" };
+    /// Callers split the returned map by filename to drive the right redirect. A file the game
+    /// does not ship is skipped. SolSystemInterstellar.xml (KSA 2026.10) is SolSystem.xml with
+    /// the nearby stars added, its inline bodies (Titan, Pluto, Triton, Neptune) unchanged.</summary>
+    public static readonly string[] SharedFiles =
+        { "Astronomicals.xml", "SolSystem.xml", "SolSystemDense.xml", "SolSystemInterstellar.xml" };
 
     /// <summary>&lt;mods&gt;\_RealSharedShadow\Core — derived from either mod's own folder
     /// (its parent is the mods dir), so both mods compute the identical path.</summary>
