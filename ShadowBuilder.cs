@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using RealModShared;
 
 namespace RealAtmospheres;
@@ -26,9 +27,10 @@ internal static class ShadowBuilder
     public static string? ShadowAstronomicals;
     public static string? ShadowShadersRoot;
 
-    /// <summary>The Mars dust phase GLSL block to inject: the Level-2 LUT (from
-    /// assets) if present, else the embedded Level-1 HG fit.</summary>
-    private static string _phaseBlock = Payloads.PatchedPhaseBlock;
+    /// <summary>The phase GLSL block to inject: the Mars dust phase - the Level-2 LUT
+    /// (from assets) if present, else the embedded Level-1 HG fit - then our one
+    /// MiePhaseFunction (Payloads.MiePhaseDispatch).</summary>
+    private static string _phaseBlock = Payloads.PatchedPhaseBlock + "\n\n" + Payloads.MiePhaseDispatch;
 
     /// <summary>Core system-template file name -> patched shadow absolute path
     /// (SolSystem.xml / SolSystemDense.xml, carrying the Titan refinement).</summary>
@@ -48,8 +50,15 @@ internal static class ShadowBuilder
 
         // Level-2 phase LUT: if the generated LUT is present, it replaces the
         // embedded Level-1 HG-fit phase block (delete the file to fall back to L1).
+        // Either supplies the Martian dust phase only: the file ends with its own
+        // copy of MiePhaseFunction, which is cut off for ours, so every body's
+        // branch (Pluto's two-part haze) is the same whichever level is in use.
         string lut = Path.Combine(assetsDir, "MarsDustPhaseLut.glsl");
-        _phaseBlock = File.Exists(lut) ? ReadLf(lut).Trim('\n') : Payloads.PatchedPhaseBlock;
+        string mars = File.Exists(lut) ? ReadLf(lut).Trim('\n') : Payloads.PatchedPhaseBlock;
+        int ownDispatch = mars.IndexOf(Payloads.StockPhaseStart, StringComparison.Ordinal);
+        if (ownDispatch >= 0)
+            mars = mars[..ownDispatch].TrimEnd('\n');
+        _phaseBlock = mars + "\n\n" + Payloads.MiePhaseDispatch;
         if (File.Exists(lut)) Log("Mars phase: LEVEL 2 (exact bhmie LUT)");
 
         int shaderPatches = 0;
@@ -60,6 +69,7 @@ internal static class ShadowBuilder
             Path.Combine(dstShaders, "Clouds", "2DCloud.comp"),
             PatchCloudTerminator) ? 1 : 0;
         PatchMarsDensity(dstShaders);
+        PatchRayleighColour(dstShaders);
         PatchHazeBandMarch(dstShaders);
         PatchCloudRingShadows(dstShaders);
         ShadowShadersRoot = dstShaders;
@@ -81,7 +91,9 @@ internal static class ShadowBuilder
             // Titan atmosphere = STOCK (forward-scattering structurally blocked; see
             // Payloads.TitanPairs). Only transitions + haze laminae are added.
             sys = PatchAtmosphereValues(sys, Payloads.TitanTransitionPairs, "Titan transitions");
+            sys = PatchAtmosphereValues(sys, Payloads.TitanShroudPairs, "Titan shroud");
             sys = PatchAtmosphereValues(sys, Payloads.NeptunePairs, "Neptune");
+            sys = PatchTitanClouds(sys, assetsDir);
             sys = PatchTitanHaze(sys, assetsDir);
             sys = UpgradeBody(sys, "Pluto", Payloads.PlutoBodyOpen, "</PlanetaryBody>",
                 extraKit: null, Payloads.PlutoAtmosphere);
@@ -101,6 +113,7 @@ internal static class ShadowBuilder
 
             sys = SwapDiffuse(sys, "Neptune", assetsDir);
             sys = InsertGiantClouds(sys, "Neptune", assetsDir, 70000);
+            sys = PatchPhysicalAtmospheres(sys, name);
             return sys;
         }, Log);
         foreach (var kv in shared)
@@ -121,6 +134,7 @@ internal static class ShadowBuilder
     {
         xml = PatchAtmosphereValues(xml, Payloads.AtmospherePairs, "Mars");
         xml = PatchAtmosphereValues(xml, Payloads.VenusPairs, "Venus");
+        xml = PatchVenusClouds(xml, assetsDir);
         xml = PatchAtmosphereValues(xml, Payloads.JupiterPairs, "Jupiter");
         xml = PatchAtmosphereValues(xml, Payloads.SaturnPairs, "Saturn");
         xml = PatchAtmosphereValues(xml, Payloads.UranusPairs, "Uranus");
@@ -130,6 +144,8 @@ internal static class ShadowBuilder
         xml = InsertGiantClouds(xml, "Saturn", assetsDir, 95000);
         xml = InsertGiantClouds(xml, "Uranus", assetsDir, 70000);
         xml = PatchCirrusLayer(xml, assetsDir);
+        xml = PatchAtmosphereValues(xml, Payloads.EarthPairs, "Earth");
+        xml = PatchPhysicalAtmospheres(xml, "Astronomicals.xml");
         return xml;
     }
 
@@ -231,6 +247,52 @@ internal static class ShadowBuilder
         return content;
     }
 
+    /// <summary>Titan's methane clouds: swap the stock layer's coverage (Venus's cloud map, in the
+    /// volumetric texture, its detail selector and the 2D texture) for the masks built from the
+    /// user's SpaceEngine map, and Venus's colours for white. The stock types and detail tile stay.
+    /// Missing masks or a layer that no longer matches stock leave it as it is.</summary>
+    private static string PatchTitanClouds(string s, string assetsDir)
+    {
+        if (s.Contains(Payloads.TitanCloudsMarker))
+            return s; // already applied
+
+        int i = s.IndexOf(Payloads.TitanCloudsAnchor, StringComparison.Ordinal);
+        int j = i < 0 ? -1 : s.IndexOf("</Layer>", i, StringComparison.Ordinal);
+        if (j < 0)
+        {
+            Log("WARN: TitanPlaceholderClouds anchor not found, keeping Titan's stock clouds");
+            return s;
+        }
+        foreach (string tex in new[] { "TitanCloudsMaskVolumetric.dds", "TitanCloudsMask2D.png" })
+        {
+            if (!File.Exists(Path.Combine(assetsDir, tex)))
+            {
+                Log($"WARN: missing asset {tex}, keeping Titan's stock clouds");
+                return s;
+            }
+        }
+        string layer = s[i..j];
+        string stock = Payloads.TitanCloudsStockTexture;
+        if (CountOf(layer, stock) != 2 || CountOf(layer, Payloads.TitanCloudsStockSelector) != 1
+            || CountOf(layer, Payloads.TitanCloudsStockColour) != 1 || CountOf(layer, Payloads.TitanClouds2DStockColour) != 1)
+        {
+            Log("WARN: Titan's cloud layer no longer matches stock, keeping its clouds");
+            return s;
+        }
+        // the volumetric map comes first, the 2D one inside TwoDimensionalCloud last; replace the
+        // later one first so the earlier index stays valid
+        int vol = layer.IndexOf(stock, StringComparison.Ordinal);
+        int flat = layer.IndexOf(stock, vol + stock.Length, StringComparison.Ordinal);
+        layer = layer[..flat] + Payloads.TitanClouds2DTexture.Replace("{ASSETS}", assetsDir) + layer[(flat + stock.Length)..];
+        layer = layer[..vol] + Payloads.TitanCloudsVolumetricTexture.Trim('\n').Replace("{ASSETS}", assetsDir)
+            + layer[(vol + stock.Length)..];
+        layer = layer.Replace(Payloads.TitanCloudsStockSelector, Payloads.TitanCloudsSelector)
+            .Replace(Payloads.TitanCloudsStockColour, Payloads.TitanCloudsColour)
+            .Replace(Payloads.TitanClouds2DStockColour, Payloads.TitanCloudsColour);
+        Log("Titan methane clouds: two polar caps from the SpaceEngine map, white");
+        return s[..i] + layer + s[j..];
+    }
+
     private static string PatchTitanHaze(string s, string assetsDir)
     {
         if (s.Contains(Payloads.TitanHazeMarker))
@@ -276,6 +338,72 @@ internal static class ShadowBuilder
             s = s.Replace(stock, corrected);
         }
         return s;
+    }
+
+    /// <summary>Each measured body's flight values (its Physical block) set to its table's 0 km values
+    /// (AtmosphereTables.Flight): the game shows them, and they are the exponential flight falls back
+    /// on if FlightAtmospheres cannot install. Bodies not in this file are passed over.</summary>
+    private static string PatchPhysicalAtmospheres(string s, string label)
+    {
+        int done = 0;
+        foreach (FlightTable t in AtmosphereTables.Flight)
+        {
+            int body = s.IndexOf($"<AtmosphericBody Id=\"{t.Body}\"", StringComparison.Ordinal);
+            if (body < 0)
+                continue;
+            int end = s.IndexOf("</AtmosphericBody>", body, StringComparison.Ordinal);
+            int p0 = end < 0 ? -1 : s.IndexOf("<Physical>", body, end - body, StringComparison.Ordinal);
+            int p1 = p0 < 0 ? -1 : s.IndexOf("</Physical>", p0, end - p0, StringComparison.Ordinal);
+            if (p1 < 0)
+            {
+                Log($"WARN: {t.Body} has no flight atmosphere block in {label}");
+                continue;
+            }
+            string block = s[p0..p1];
+            block = Regex.Replace(block, "(<SeaLevelPressure\\s+Atm=\")[^\"]*(\")", "${1}" + t.SeaLevelPressureAtm + "${2}");
+            block = Regex.Replace(block, "(<SeaLevelDensity\\s+KgPerM3=\")[^\"]*(\")", "${1}" + t.SeaLevelDensity + "${2}");
+            block = Regex.Replace(block, "(<ScaleHeight\\s+Km=\")[^\"]*(\")", "${1}" + t.ScaleHeightKm + "${2}");
+            s = s[..p0] + block + s[p1..];
+            done++;
+        }
+        if (done > 0)
+            Log($"measured flight values set for {done} bodies in {label}");
+        return s;
+    }
+
+    /// <summary>Venus's stock cloud layer as one deck (see Payloads.VenusCloudDeckTypes): swaps its five
+    /// cloud types and its detail tile for the coverage-lifted copy, inside Venus's body only. If the
+    /// stock types are not the five expected, the clouds are left as they are; without the tile the
+    /// types still apply, but the deck keeps the stock tile's holes.</summary>
+    private static string PatchVenusClouds(string s, string assetsDir)
+    {
+        if (s.Contains(Payloads.VenusDeckMarker))
+            return s; // already applied
+
+        int body = s.IndexOf("<AtmosphericBody Id=\"Venus\"", StringComparison.Ordinal);
+        int end = body < 0 ? -1 : s.IndexOf("</AtmosphericBody>", body, StringComparison.Ordinal);
+        if (end < 0) { Log("WARN: Venus not found, clouds left as they are"); return s; }
+        string venus = s[body..end];
+
+        const string firstType = "<CloudType Name=\"Stratus\">", typeEnd = "</CloudType>";
+        int t0 = venus.IndexOf(firstType, StringComparison.Ordinal);
+        int t1 = venus.LastIndexOf(typeEnd, StringComparison.Ordinal);
+        if (CountOf(venus, "<CloudType ") != 5 || t0 < 0 || t1 < t0 || CountOf(venus[..t0], "<CloudType ") != 0
+            || !venus[(t1 + typeEnd.Length)..].TrimStart().StartsWith("</VolumetricCloud>", StringComparison.Ordinal))
+        {
+            Log("WARN: Venus's stock cloud types have changed, clouds left as they are");
+            return s;
+        }
+
+        venus = venus[..t0] + Payloads.VenusCloudDeckTypes.Trim('\n') + venus[(t1 + typeEnd.Length)..];
+        if (!File.Exists(Path.Combine(assetsDir, "VenusCloudDetail.png")))
+            Log("WARN: VenusCloudDetail.png missing, Venus's deck keeps the stock tile's holes");
+        else if (CountOf(venus, Payloads.VenusStockDetailTexture) != 1)
+            Log("WARN: Venus's stock detail tile not found, the deck keeps its holes");
+        else
+            venus = venus.Replace(Payloads.VenusStockDetailTexture, Payloads.VenusDetailTexture.Replace("{ASSETS}", assetsDir));
+        Log("Venus cloud deck: one solid deck 48-72 km, stock variety in short crowns");
+        return s[..body] + venus + s[end..];
     }
 
     private static string PatchCirrusLayer(string s, string assetsDir)
@@ -408,7 +536,9 @@ internal static class ShadowBuilder
                 if (d.Contains(Payloads.AtmosphereDataEndif))
                 {
                     d = d.Replace(Payloads.AtmosphereDataEndif,
-                        Payloads.MarsDensityHelper.Trim('\n') + "\n\n" + Payloads.AtmosphereDataEndif);
+                        Payloads.MarsDensityHelper.Trim('\n')
+                            .Replace("// __RA_DENSITY_TABLES__", AtmosphereTables.VisualDensityGlsl.Trim('\n'))
+                        + "\n\n" + Payloads.AtmosphereDataEndif);
                     File.WriteAllText(dataPath, d);
                 }
                 else Log("WARN: AtmosphereData include-guard not found, skipping double-exp density");
@@ -429,6 +559,33 @@ internal static class ShadowBuilder
             done++;
         }
         Log($"Mars double-exp density ({done}/{Payloads.MarsDensitySites.Length} files)");
+    }
+
+    /// <summary>Rayleigh colour by altitude: swap every stock use of the Rayleigh coefficients for
+    /// RaRayleighCoefficients (the XML colour except above Titan's main haze). A file whose sites don't
+    /// all match is left stock, so its extinction and scattering can't disagree.</summary>
+    private static void PatchRayleighColour(string shadersDir)
+    {
+        int done = 0, files = 0;
+        foreach (var group in Payloads.RayleighColourSites.GroupBy(site => site.File))
+        {
+            files++;
+            string path = Path.Combine(shadersDir, group.Key.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(path)) { Log($"WARN: {group.Key} missing, skipping its Rayleigh colour"); continue; }
+            string s = ReadLf(path);
+            if (s.Contains(Payloads.RayleighColourCall)) { done++; continue; } // already applied
+            var off = group.Where(site => CountOf(s, site.Stock) != site.Count).ToList();
+            if (off.Count > 0)
+            {
+                Log($"WARN: {group.Key} Rayleigh anchor '{off[0].Stock}' found {CountOf(s, off[0].Stock)}x (expected {off[0].Count}), leaving its colour stock");
+                continue;
+            }
+            foreach (var site in group)
+                s = s.Replace(site.Stock, site.Patch);
+            File.WriteAllText(path, s);
+            done++;
+        }
+        Log($"Rayleigh colour by altitude ({done}/{files} files)");
     }
 
     // Insert the horizontal haze-band march into Atmosphere.comp and branch the sky path so

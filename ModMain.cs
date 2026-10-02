@@ -120,6 +120,8 @@ public class ModMain
         else
             ShadowBuilder.Log("WARN: AtmosphereRenderer.FillPlanetAtmosphereData(body, atmoRef) not found; haze animation is not sim-linked");
 
+        FlightAtmospheres.Install(harmony);
+
         ShadowBuilder.Log("installed (XML + shader redirects active)");
     }
 }
@@ -279,8 +281,8 @@ internal static class Patches
     /// haze ran on wall-clock time on Pluto and Triton and stood still on Titan, whose stock
     /// extent (20 km) the shader took as a fixed time.
     ///
-    /// The swap is harmless on these bodies: Pluto and Triton have no ozone, and Titan's is too
-    /// thin to matter at any extent. Nothing else reads the extent while the call runs.
+    /// The swap is harmless on these bodies: Pluto has no ozone, and Titan's is too thin to
+    /// matter at any extent. Nothing else reads the extent while the call runs.
     /// </summary>
     public static void FillAtmosphereDataPrefix(object body, object atmoRef, out object? __state)
     {
@@ -308,8 +310,7 @@ internal static class Patches
     /// <summary>The haze bodies, as RaBodyHasHaze in AtmosphereData.glsl picks them out.</summary>
     public static bool IsHazeBody(double meanRadius) =>
         Math.Abs(meanRadius - 1188300.0) < 5000.0      // Pluto
-        || Math.Abs(meanRadius - 2575500.0) < 5000.0   // Titan
-        || Math.Abs(meanRadius - 1353400.0) < 5000.0;  // Triton
+        || Math.Abs(meanRadius - 2575500.0) < 5000.0;  // Titan
 
     /// <summary>Elapsed simulation seconds for the haze clock, or null without a clock. Not
     /// wrapped: wrapping made the haze jump once per period. A float carries the raw seconds

@@ -7,11 +7,16 @@ MarsCirrusMaskVolumetric.dds
 MarsCirrusMask2D.png
 MarsDustPhaseLut.glsl
 
-# Titan: detached upper + lower haze laminae
+# Venus: the game's Earth cumulus detail tile with its coverage lifted, so the deck has no holes (make_venus_detail.py)
+VenusCloudDetail.png
+
+# Titan: detached upper + lower haze laminae, methane clouds (two polar caps)
 TitanUpperHazeMaskVolumetric.dds
 TitanUpperHazeMask2D.png
 TitanLowerHazeMaskVolumetric.dds
 TitanLowerHazeMask2D.png
+TitanCloudsMaskVolumetric.dds
+TitanCloudsMask2D.png
 
 # Triton: N2 haze/cloud layer
 TritonCloudsMaskVolumetric.dds

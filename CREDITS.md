@@ -10,6 +10,7 @@ from and what its terms allow. **Status is what gates publishing a release.**
 |---|---|---|
 | `TitanUpperHazeMask*`, `TitanLowerHazeMask*` | Derived from our own SpaceEngine PRO export of Titan's cloud layers (`TitanLowerHazeSource.png`, `TitanUpperHazeSource.png`): luminance to alpha, normalised, compressed | SpaceEngine PRO EULA §3.1.1.b–c permits publishing and distributing verbatim and derivative copies of the Software's output, including exported textures. Attribution required, see below |
 | `TritonCloudsMask*` | Derived the same way from our SpaceEngine PRO export of Triton's cloud layer | As above |
+| `TitanCloudsMask*` | Built by `convert_titan_haze_maps.py` from `TitanCloudsSource.png`, our own SpaceEngine PRO export of Titan's methane clouds (its alpha as coverage) | As above |
 | `MarsCirrusMask2D.png`, `MarsCirrusMaskVolumetric.dds` | Built by `make_mars_cirrus.py` from `MarsCirrusSource.png`, our own SpaceEngine PRO export of Mars's cloud layer | As above |
 | `SaturnDiffuse.ktx2`, `SaturnCloudsMask.dds` | `SaturnMapSource.png`, mixed by JCP-JohnCarlo from several maps that all permit use and editing | Permission with attribution. Credit line required, see below |
 | `MarsDustPhaseLut.glsl` | Computed by `make_mars_phase_lut.py` from Mie theory (bhmie port), feldspar and hematite optical constants | Ours. MIT |
@@ -38,6 +39,28 @@ archive keeps its own terms and the MIT code is unaffected.
 Dropping Askaniy's Uranus map (stock Uranus diffuse plus our own mask and flowmap)
 would remove the non-commercial condition entirely, if a permissive release matters
 more than that map.
+
+## To confirm before release
+
+| Asset | Source | Terms |
+|---|---|---|
+| `VenusCloudDetail.png` | The game's own `Content/Core/Textures/Clouds/CloudDetail2048.png` with its coverage channels lifted by `make_venus_detail.py` | A modified copy of Kitten Space Agency content: confirm the game's terms allow redistributing it, or build it at launch from the player's install instead |
+
+## Data
+
+The flight atmospheres (`AtmosphereTables.Generated.cs`, from `make_flight_atmospheres.py`) are built from public data: the NASA Planetary Data System Atmospheres Node (Huygens HASI, Galileo probe ASI, Mars Pathfinder ASI/MET, Phoenix ASE, Voyager 2 Triton radio occultation), the U.S. Standard Atmosphere 1976, the Venus International Reference Atmosphere (Seiff et al. 1985), and published temperature profiles (Lindal et al. 1985, 1987, 1992; Orton et al. 2014; New Horizons, Hinson et al. 2017).
+
+Titan's haze colours use the haze's measured spectrum (Tomasko et al. 2008) and Titan's full-disc albedo (Karkoschka 1994, 1998; PDS Atmospheres Node volume gbat_0001, doi:10.17189/2bp8-k793).
+
+Pluto's haze follows New Horizons' measurements: its extinction against altitude from the Alice ultraviolet solar occultation (Young et al. 2018), its brightness at four phase angles and its colour from LORRI and MVIC (Cheng et al. 2017), checked against its optical depth (Gladstone et al. 2016).
+
+Venus's lower haze follows the aerosol extinction the Venera 13 and 14 descent probes measured below the clouds (Grieger et al. 2004), alongside Pioneer Venus's (Knollenberg & Hunten 1980), as compiled by Woitke et al. (2025).
+
+The giants' gas strength uses each gas's refractivity (H₂: Peck & Hung 1977; He: Mansfield & Peck 1969) and the composition at 1 bar: Jupiter from the Galileo probe (von Zahn et al. 1998; Wong et al. 2004), Saturn (Koskinen & Guerlet 2018; Fletcher et al. 2009), Uranus (Conrath et al. 1987) and Neptune (Conrath et al. 1991).
+
+Saturn's cloud top sits where Cassini found the top of its tropospheric haze (Roman et al. 2013), and its stratospheric haze follows the particles and optical depth Hubble measured (Sanz-Requena et al. 2019) over the extent Pérez-Hoyos et al. (2005) found. Jupiter's stratospheric haze follows Cassini's (Zhang et al. 2013), and its cloud heights the measurements reviewed by Guerlet et al. (2020).
+
+Triton's haze is Mie theory on the haze particles Voyager 2's photometry found (Rages & Pollack 1992, as tabulated by Ohno et al. 2021), checked against its optical depth, colour and forward scattering from Voyager (Pollack et al. 1990; Hillier et al. 1990, 1991).
 
 ## Not shipped
 

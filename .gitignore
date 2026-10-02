@@ -11,3 +11,9 @@ StarMapConfig.json
 # CREDITS.md. Release archives carry the built masks; see release-files.txt.
 assets/
 Mars_Upper_Clouds.png
+
+# make_flight_atmospheres.py download cache (NASA PDS profiles)
+.cache/
+
+# Python bytecode
+__pycache__/
