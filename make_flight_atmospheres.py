@@ -615,6 +615,111 @@ def triton_visual(z_flight, rho_flight, boundary_km):
           f"Cornette-Shanks asymmetry {asym.round(3)}")
 
 
+# ---- Earth's ozone (visual) -----------------------------------------------------------------------------
+# Shaped like the US Standard Atmosphere 1976's ozone, the same standard as Earth's gas (AFGL-TR-86-0110, Anderson et
+# al. 1986, as libRadtran's afglus.dat carries it), whose number density peaks at 4.9e18 m^-3 at 22 km. The game
+# draws ozone as a tent, full at its centre and gone at its extent either side; the tent closest to the profile with
+# its column is centred at 22.3 km and reaches 18.8 km either way (3.5-41 km), where the game's was 20 +- 10 km.
+#
+# The column is the game's own, not the standard's: the game's layer holds about 123 DU (its green coefficient over
+# ozone's cross-section at 550 nm), the standard 346. With 346 the whole daylit planet turned visibly bluer than the
+# game's Earth (2026-10-03, by eye; seen through the layer twice at an airmass of 3, red -6% and blue +5% against
+# green). With the game's column it is within 3% of the stock layer by day, while what has crossed a long path of it,
+# twilight and the terminator, turns blue as it should rather than magenta (below).
+#
+# Its absorption per channel is NOT ozone's cross-section at the renderer's three wavelengths (680, 550, 440 nm).
+# Ozone's visible absorption is the Chappuis band, broad and peaking near 600 nm, inside what the red channel sees:
+# sampled at 680 nm, red goes through ozone four times too easily while green is taken, and the light that has
+# crossed it - the twilight sky, the terminator seen from orbit - turns magenta, where it is really bluer (sunlight
+# through 40 airmasses of it is (0.18, 0.31, 1) against the Sun; sampled, (0.59, 0.28, 1)). So each channel gets
+# the cross-section that makes the three-wavelength renderer agree with the whole spectrum: sunlight (Bruneton
+# 2017's solar irradiance) through 1 to 60 vertical columns, every 10 nm (Serdyuchenko et al. 2014, IUP Bremen, at
+# 233 K, as Bruneton 2017 tabulates them), seen through the CIE 1931 observer in linear sRGB, fitted per channel
+# (ozone_channel_cross_sections). Times the tent's peak density.
+EARTH_OZONE_PROFILE = (    # km, ozone molecules per cm^3 (AFGL U.S. standard)
+    (0, 6.778e+11), (1, 6.779e+11), (2, 6.778e+11), (3, 6.274e+11), (4, 5.771e+11), (5, 5.773e+11), (6, 5.646e+11),
+    (7, 6.151e+11), (8, 6.527e+11), (9, 8.91e+11), (10, 1.129e+12), (11, 1.631e+12), (12, 2.008e+12), (13, 2.133e+12),
+    (14, 2.384e+12), (15, 2.635e+12), (16, 3.012e+12), (17, 3.514e+12), (18, 4.015e+12), (19, 4.391e+12),
+    (20, 4.769e+12), (21, 4.769e+12), (22, 4.894e+12), (23, 4.768e+12), (24, 4.518e+12), (25, 4.267e+12),
+    (27.5, 3.273e+12), (30, 2.51e+12), (32.5, 1.861e+12), (35, 1.38e+12), (37.5, 9.656e+11), (40, 6.066e+11),
+    (42.5, 3.598e+11), (45, 2.147e+11), (47.5, 1.197e+11), (50, 6.622e+10), (55, 2.126e+10), (60, 7.069e+09),
+    (65, 2.37e+09), (70, 5.169e+08), (75, 2.087e+08), (80, 1.15e+08), (85, 8.555e+07), (90, 4.995e+07),
+    (95, 2.047e+07), (100, 4.756e+06), (105, 1.007e+06), (110, 1.072e+05), (115, 4844), (120, 255.7))
+DOBSON = 2.6867e20                                                       # molecules per m^2
+EARTH_VISUAL = {}
+# The game's own layer: its green coefficient (per km at the tent's peak) over its extent either side
+STOCK_OZONE_GREEN_PER_KM, STOCK_OZONE_EXTENT_KM = 0.0011544693829723834, 10.0
+O3_CROSS_SECTION_550 = 3.5e-25                                          # m^2 (Serdyuchenko et al. 2014, as below)
+
+# Every 10 nm from 360 to 830 nm, as Bruneton (2017) tabulates them: the solar irradiance at the top of the
+# atmosphere (W m^-2 nm^-1) and ozone's absorption cross-section at 233 K (m^2; Serdyuchenko et al. 2014).
+SPECTRUM_NM = np.arange(360.0, 831.0, 10.0)
+SOLAR_IRRADIANCE = np.array([
+    1.11776, 1.14259, 1.01249, 1.14716, 1.72765, 1.73054, 1.6887, 1.61253, 1.91198, 2.03474, 2.02042, 2.02212, 1.93377,
+    1.95809, 1.91686, 1.8298, 1.8685, 1.8931, 1.85149, 1.8504, 1.8341, 1.8345, 1.8147, 1.78158, 1.7533, 1.6965, 1.68194,
+    1.64654, 1.6048, 1.52143, 1.55622, 1.5113, 1.474, 1.4482, 1.41018, 1.36775, 1.34188, 1.31429, 1.28303, 1.26758,
+    1.2367, 1.2082, 1.18737, 1.14683, 1.12362, 1.1058, 1.07124, 1.04992])
+O3_CROSS_SECTION = np.array([
+    1.18e-27, 2.182e-28, 2.818e-28, 6.636e-28, 1.527e-27, 2.763e-27, 5.52e-27, 8.451e-27, 1.582e-26, 2.316e-26,
+    3.669e-26, 4.924e-26, 7.752e-26, 9.016e-26, 1.48e-25, 1.602e-25, 2.139e-25, 2.755e-25, 3.091e-25, 3.5e-25,
+    4.266e-25, 4.672e-25, 4.398e-25, 4.701e-25, 5.019e-25, 4.305e-25, 3.74e-25, 3.215e-25, 2.662e-25, 2.238e-25,
+    1.852e-25, 1.473e-25, 1.209e-25, 9.423e-26, 7.455e-26, 6.566e-26, 5.105e-26, 4.15e-26, 4.228e-26, 3.237e-26,
+    2.451e-26, 2.801e-26, 2.534e-26, 1.624e-26, 1.465e-26, 2.078e-26, 1.383e-26, 7.105e-27])
+
+
+def cie_xyz(lam):
+    """CIE 1931 2-degree colour matching functions, multi-lobe Gaussian fits from Wyman, Sloan & Shirley (2013)."""
+    def g(x, mu, s1, s2):
+        return np.exp(-0.5 * ((x - mu) / np.where(x < mu, s1, s2)) ** 2)
+    x = 1.056 * g(lam, 599.8, 37.9, 31.0) + 0.362 * g(lam, 442.0, 16.0, 26.7) - 0.065 * g(lam, 501.1, 20.4, 26.2)
+    y = 0.821 * g(lam, 568.8, 46.9, 40.5) + 0.286 * g(lam, 530.9, 16.3, 31.1)
+    z = 1.217 * g(lam, 437.0, 11.8, 36.0) + 0.681 * g(lam, 459.0, 26.0, 13.8)
+    return x, y, z
+
+
+def ozone_channel_cross_sections(column):
+    """Per-channel cross-sections (m^2) for a three-wavelength renderer: the ones whose transmittance, channel by
+    channel, best matches sunlight's through 1 to 60 vertical columns of ozone computed over the spectrum (log
+    least squares). Within 1% in each channel and in luminance over that range."""
+    x, y, z = cie_xyz(SPECTRUM_NM)
+    to_rgb = np.array([[3.2406, -1.5372, -0.4986], [-0.9689, 1.8758, 0.0415], [0.0557, -0.2040, 1.0570]])
+    def rgb(spectrum):
+        return to_rgb @ np.array([spectrum @ x, spectrum @ y, spectrum @ z])
+    white = rgb(SOLAR_IRRADIANCE)
+    masses = np.array([1, 2, 3, 5, 7, 10, 15, 20, 30, 40, 50, 60], float)
+    truth = np.log(np.maximum([rgb(SOLAR_IRRADIANCE * np.exp(-O3_CROSS_SECTION * column * m)) / white for m in masses], 1e-6))
+    # each channel's transmittance is exp(-sigma N m): its log is linear in N m, so each channel's sigma is a
+    # least-squares slope through the origin
+    nm = masses * column
+    return -(truth.T @ nm) / (nm @ nm)
+
+
+def earth_ozone():
+    z = np.array([v[0] for v in EARTH_OZONE_PROFILE], float)
+    n = np.array([v[1] for v in EARTH_OZONE_PROFILE], float) * 1e6          # per m^3
+    zf = np.linspace(0.0, 120.0, 12001)
+    nf = np.interp(zf, z, n)
+    column = np.trapz(nf, zf * 1e3)
+    best = None
+    for c in np.arange(15.0, 32.0001, 0.1):
+        for w in np.arange(5.0, 25.0001, 0.1):
+            tent = np.clip(1 - np.abs(zf - c) / w, 0, None) * column / (w * 1e3)
+            err = np.trapz((nf - tent) ** 2, zf)
+            if best is None or err < best[0]:
+                best = (err, round(float(c), 1), round(float(w), 1))
+    _, centre, extent = best
+    game = STOCK_OZONE_GREEN_PER_KM * STOCK_OZONE_EXTENT_KM / O3_CROSS_SECTION_550   # the game's column, per m^2
+    peak = game / (extent * 1e3)
+    sigma = ozone_channel_cross_sections(game)
+    coef = sigma * peak * 1e3                                               # per km at the tent's peak
+    EARTH_VISUAL.update(ozone=coef, centre=centre, extent=extent)
+    point = O3_CROSS_SECTION[[32, 19, 8]]                                   # what 680/550/440 nm would have given
+    print(f"  Earth ozone: US76 {column / DOBSON:.0f} DU, peak {nf.max():.3g}/m3 at {zf[np.argmax(nf)]:.1f} km -> tent "
+          f"{centre} +- {extent} km holding the game's {game / DOBSON:.1f} DU: {coef.round(7)}/km at its peak, vertical "
+          f"optical depth {(sigma * game).round(5)}; per-channel cross-sections {sigma.round(28)} m2, "
+          f"x{(sigma / point).round(2)} the 680/550/440 nm values")
+
+
 # ---- The giants' gas (visual) ---------------------------------------------------------------------------
 # The gas at 1 bar, the game's surface on the giants: molecules from the flight table's pressure and temperature
 # there, times each gas's scattering over air's per molecule, ((n - 1) / (n_air - 1))^2 F / F_air, lambda^-4, as
@@ -664,10 +769,24 @@ def giant_gas(body, z, p, t):
 #            Zhang et al. 2013), which r_eff 0.4 um matches; imaginary index 0.02 at 255 nm to 0.001 at 900 nm
 #            (log-log, as Guerlet et al. 2020 after Zhang et al.); real index taken as Saturn's 1.43
 # The polar hazes of both are far thicker and darker; the game has one haze per planet, so these are low latitudes'.
+#
+# Both decks were later raised so that less gas shows above them (Jupiter's 2D shell to 111 km, Saturn's whole deck
+# by 72.5 km: shell 172.5 km, 5.3 mbar). Jupiter's haze still reaches well above its deck. Saturn's was left mostly
+# inside its clouds: along the limb 9% of what stood above the deck when its shell was at 100 km, where the haze had
+# blended the cloud tops into the sky (the look the user had called perfect), so the deck ended in a hard edge. So
+# Saturn's haze is moved with its deck and then compressed (user, 2026-10-05: "moved ... to fit above the cloud deck
+# at the right density, but then compressed ... to fit within the gas at the right ratio"; of three ways to compress
+# it they chose the measured haze-to-gas ratio):
+#   below the shell   the measured profile 72.5 km higher: each density where it was against the clouds
+#   above the shell   the same densities in order, their heights above the shell shrunk by the gas pressure at the new
+#                     shell over that at the old one (0.10), which is the gas column above the one over the other.
+#                     Looking straight down, haze and gas above the deck are then in the measured proportion.
+# The haze above the deck becomes a sheet on the cloud tops, fading by e in about 3 km where it took 28: along the
+# limb 44% of the haze of the approved look, where the gas along the same line is 9% of what it was.
 GIANT_HAZE = {
-    "Saturn": dict(radius=58232000.0, tau09=0.01, r=0.10, v=0.10, n=1.43, shell=100.0,
+    "Saturn": dict(radius=58232000.0, tau09=0.01, r=0.10, v=0.10, n=1.43, shell=172.5, moved_from=100.0,
                    ni=lambda lam: 0.001),
-    "Jupiter": dict(radius=69911000.0, tau09=0.03, r=0.40, v=0.10, n=1.43, shell=67.8,
+    "Jupiter": dict(radius=69911000.0, tau09=0.03, r=0.40, v=0.10, n=1.43, shell=111.0,
                     ni=lambda lam: math.exp(math.log(0.02) + (math.log(lam) - math.log(0.255))
                                             / (math.log(0.9) - math.log(0.255)) * (math.log(0.001) - math.log(0.02)))),
 }
@@ -715,12 +834,32 @@ def giant_haze(body, z_flight, rho_flight, p_flight):
     lnf = np.interp(zf, zb, ln_h)
     column = np.trapz(np.exp(lnf), zf)                                       # km at the base's density
     coef = tau * ssa / column                                                # scattering per km at the base
+    step, moved = 2.0, ""
+    if "moved_from" in c:
+        # moved with the deck, then compressed above its 2D shell to the measured haze-to-gas ratio (see above). The
+        # densities are the measured ones, so the strength at the base stands; the column shrinks.
+        old_shell, shell = c["moved_from"], c["shell"]
+        squeeze = float(np.exp(np.interp(shell, z_flight, np.log(p_flight)) - np.interp(old_shell, z_flight, np.log(p_flight))))
+        step = 0.5                                                           # the sheet fades by e in ~3 km
+        zb = np.arange(0.0, 300.0 + 0.25, step)
+        z_was = np.where(zb >= shell, old_shell + (zb - shell) / squeeze, zb - (shell - old_shell))
+        ln_gas_was = np.interp(z_was, z_flight, np.log(rho_flight))
+        ln_h = np.where(z_was < z_base, (z_was - z_base) / GIANT_HAZE_EDGES[0],
+                        ln_gas_was - ln_base - np.maximum(z_was - z_top, 0.0) / GIANT_HAZE_EDGES[1])
+        ln_h = np.maximum(ln_h, -60.0)
+        zf = np.linspace(0.0, 300.0, 12001)
+        lnf = np.interp(zf, zb, ln_h)
+        whole, column = column, np.trapz(np.exp(lnf), zf)
+        tau = tau * column / whole
+        gone = zb[np.nonzero(ln_h > math.log(1e-3))[0].max()]
+        moved = (f"; MOVED with the deck from a shell at {old_shell:g} km and compressed x{squeeze:.3f} above {shell:g} km: base "
+                 f"{z_base + shell - old_shell:.1f} km, gone by {gone:.0f} km, {100 * column / whole:.0f}% of the measured column left")
     key = round(column, 1)
     top = key * math.log(coef.max() * 1e-3 / 1e-10)                         # the engine: H ln(beta_max / 1e-10 per m)
     above = np.trapz(np.exp(lnf[zf >= c["shell"]]), zf[zf >= c["shell"]]) / column
-    GIANT_HAZE_VISUAL[body] = dict(mie=coef, key=key, asym=asym, absorption=1.0 / ssa.mean())
-    VISUAL[(body, "mie")] = (2.0, ln_h, (c["radius"], key * 1e3))
-    print(f"  {body} haze: {z_base:.1f}-{z_top:.1f} km (100-1 mbar); optical depth R G B {tau.round(4)}, "
+    GIANT_HAZE_VISUAL[body] = dict(mie=coef, key=key, asym=asym, absorption=1.0 / ssa.mean(), shell=c["shell"])
+    VISUAL[(body, "mie")] = (step, ln_h, (c["radius"], key * 1e3))
+    print(f"  {body} haze: {z_base:.1f}-{z_top:.1f} km (100-1 mbar) as measured{moved}; optical depth R G B {tau.round(4)}, "
           f"{100 * above:.0f}% above the 2D shell at {c['shell']:g} km; single-scattering albedo {ssa.round(3)}, "
           f"lobe {asym.round(3)}; XML {coef.round(6)}/km at its base, key {key} km (column-equivalent), its own top {top:.0f} km")
 
@@ -732,6 +871,7 @@ def cs_array(values, fmt="{:.6e}", per_line=8):
 
 def main():
     print("Earth"); z, rho, p, t, mu, g = earth(); add("Earth", z, rho, p, t, mu, g, (1.225, 101325, 8)); visual("Earth", z, rho, 2.0, 120)
+    earth_ozone()
     print("Venus"); z, rho, p, t, mu, g = venus(); add("Venus", z, rho, p, t, mu, g, (65, 92 * 101325, 18)); visual("Venus", z, rho, 5.0, 100)
     venus_haze()
     print("Mars"); z, rho, p, t, mu, g, meas = mars(); add("Mars", z, rho, p, t, mu, g, (0.02, 0.006 * 101325, 11))
@@ -859,18 +999,27 @@ def main():
               ""]
     def positional(v):
         return " ".join(f'{c}=\\"{np.format_float_positional(x, precision=4, fractional=False, trim="-")}\\"' for c, x in zip("RGB", v))
+    ev = EARTH_VISUAL
+    lines += ["    /// <summary>Earth's ozone in the XML (make_flight_atmospheres.py): the game's column, shaped like the US Standard",
+              "    /// Atmosphere 1976's as the game's tent (centre and extent either side), absorbing per channel.</summary>",
+              f"    internal const string EarthOzoneCoefficients = \"{rgb(ev['ozone'])}\";",
+              f"    internal const string EarthOzoneAltitudeKm = \"{ev['centre']:g}\";",
+              f"    internal const string EarthOzoneExtentKm = \"{ev['extent']:g}\";",
+              ""]
     lines += ["    /// <summary>The giants' gas in the XML (make_flight_atmospheres.py, GIANT_RAYLEIGH = \"" + GIANT_RAYLEIGH + "\"): its",
               "    /// Rayleigh strength at 1 bar, the game's surface; the scale heights stay the shader's keys.</summary>"]
     lines += [f"    internal const string {b}RayleighCoefficients = \"{positional(GIANT_VISUAL[b])}\";" for b in GIANT_VISUAL]
     lines += [""]
     lines += ["    /// <summary>Jupiter's and Saturn's stratospheric hazes in the XML (make_flight_atmospheres.py): each one's",
               "    /// strength at its base (100 mbar), where the shader's table peaks; the scale height is the table's key; the",
-              "    /// game's lobe per channel.</summary>"]
+              "    /// game's lobe per channel. HazeShellKm is the top of the cloud deck each was laid against (Saturn's is moved",
+              "    /// with its deck and compressed above that height).</summary>"]
     for b, hv in GIANT_HAZE_VISUAL.items():
         lines += [f"    internal const string {b}MieCoefficients = \"{rgb(hv['mie'])}\";",
                   f"    internal const string {b}MieScaleHeightKm = \"{hv['key']:g}\";",
                   f"    internal const string {b}MieAsymmetry = \"" + " ".join(f'{c}=\\"{v:.3f}\\"' for c, v in zip("XYZ", hv["asym"])) + "\";",
-                  f"    internal const string {b}MieAbsorption = \"{hv['absorption']:.4f}\";"]
+                  f"    internal const string {b}MieAbsorption = \"{hv['absorption']:.4f}\";",
+                  f"    internal const string {b}HazeShellKm = \"{hv['shell']:g}\";"]
     lines += [""]
     lines += ["    /// <summary>GLSL for AtmosphereData.glsl, inserted ahead of AtmosphereDensityFalloff: the density",
               "    /// tables and Titan's Rayleigh colour by altitude.</summary>",

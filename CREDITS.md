@@ -45,6 +45,7 @@ more than that map.
 | Asset | Source | Terms |
 |---|---|---|
 | `VenusCloudDetail.png` | The game's own `Content/Core/Textures/Clouds/CloudDetail2048.png` with its coverage channels lifted by `make_venus_detail.py` | A modified copy of Kitten Space Agency content: confirm the game's terms allow redistributing it, or build it at launch from the player's install instead |
+| `JupiterCloudsMask.dds` | The game's own `Content/Core/Textures/Clouds/Compressed/JupiterMask.dds` with its grey and white swapped by `make_jupiter_mask.py` | A modified copy of Kitten Space Agency content: as above |
 
 ## Data
 
@@ -56,9 +57,11 @@ Pluto's haze follows New Horizons' measurements: its extinction against altitude
 
 Venus's lower haze follows the aerosol extinction the Venera 13 and 14 descent probes measured below the clouds (Grieger et al. 2004), alongside Pioneer Venus's (Knollenberg & Hunten 1980), as compiled by Woitke et al. (2025).
 
+Earth's ozone is shaped like the US Standard Atmosphere 1976's (AFGL-TR-86-0110, Anderson et al. 1986), absorbing with the cross-sections Serdyuchenko et al. (2014) measured, at 233 K, weighted over each colour channel's share of the spectrum with the solar irradiance and the 10 nm tables of E. Bruneton's precomputed atmospheric scattering (2017).
+
 The giants' gas strength uses each gas's refractivity (H₂: Peck & Hung 1977; He: Mansfield & Peck 1969) and the composition at 1 bar: Jupiter from the Galileo probe (von Zahn et al. 1998; Wong et al. 2004), Saturn (Koskinen & Guerlet 2018; Fletcher et al. 2009), Uranus (Conrath et al. 1987) and Neptune (Conrath et al. 1991).
 
-Saturn's cloud top sits where Cassini found the top of its tropospheric haze (Roman et al. 2013), and its stratospheric haze follows the particles and optical depth Hubble measured (Sanz-Requena et al. 2019) over the extent Pérez-Hoyos et al. (2005) found. Jupiter's stratospheric haze follows Cassini's (Zhang et al. 2013, as Guerlet et al. 2020 use it), and its clouds reach the height where that haze turns opaque to a grazing view.
+Saturn's stratospheric haze follows the particles and optical depth Hubble measured (Sanz-Requena et al. 2019) over the extent Pérez-Hoyos et al. (2005) found, above the top of its tropospheric haze that Cassini found (Roman et al. 2013). Jupiter's stratospheric haze follows Cassini's (Zhang et al. 2013, as Guerlet et al. 2020 use it).
 
 Triton's haze is Mie theory on the haze particles Voyager 2's photometry found (Rages & Pollack 1992, as tabulated by Ohno et al. 2021), checked against its optical depth, colour and forward scattering from Voyager (Pollack et al. 1990; Hillier et al. 1990, 1991).
 

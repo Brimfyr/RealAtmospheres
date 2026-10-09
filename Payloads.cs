@@ -86,6 +86,20 @@ $"""
 """.Trim('\n'),
             "US Standard Atmosphere 1976 density in the shader"
         ),
+        (
+"""
+<Coefficients R="0.0004766464336060959" G="0.0011544693829723834" B="5.008543960834634E-05" />
+                    <Altitude Km="20" />
+                    <Extent Km="10" />
+""".Trim('\n'),
+$"""
+<!-- Real Atmospheres: Earth's ozone, the game's column in the US Standard Atmosphere 1976's shape, absorbing per channel (generated) -->
+                    <Coefficients {AtmosphereTables.EarthOzoneCoefficients} />
+                    <Altitude Km="{AtmosphereTables.EarthOzoneAltitudeKm}" />
+                    <Extent Km="{AtmosphereTables.EarthOzoneExtentKm}" />
+""".Trim('\n'),
+            "Earth's ozone, the game's column in the US Standard Atmosphere 1976's shape"
+        ),
     };
 
     public static readonly (string Stock, string Corrected, string Marker)[] VenusPairs =
@@ -187,6 +201,15 @@ $"""
     public const string VenusStockDetailTexture = "<Texture Id=\"CloudDetail2048\"/>";
     public const string VenusDetailTexture =
         """<Texture Id="VenusCloudDetail" Path="{ASSETS}\VenusCloudDetail.png" Category="Terrain"/>""";
+
+    // The four crown types' MultipleScatteringBrightness where the deck is lit at the face (FaceLight): 0.68, beside
+    // the stratus's 0.7. The game has 1 there, which made up for its own lighting: a sharp-edged crown, lit at the far
+    // end of each step, came out darker than the soft stratus. Lit at the face it does not, and with 1 the crowns
+    // stood at 1.4 of the 2D layer's brightness at the 1,800 km switch and the stratus at 1.1 (user, 2026-10-06:
+    // "Venus' 3D clouds seem a bit too bright now"; Sun-lit and sky light as the game composes them, against the 2D
+    // layer's 0.12 x 9 x (0.15 + 0.85 x the Sun's zenith cosine): scratchpad giants/venus_total_light.py). At 0.68
+    // both come out at 1.04-1.05 of it at the switch and 0.96-1.05 from 300 km. Without the face light: the game's 1.
+    public const string VenusCrownBrightness = "0.68";
 
     public const string VenusCloudDeckTypes =
 """
@@ -295,7 +318,7 @@ $"""
                         <Density Value="0.0035" />
                         <NoiseScale M="9200" />
                         <EdgeSharpness Value="0.98" />
-                        <MultipleScatteringBrightness Value="1" />
+                        <MultipleScatteringBrightness Value="{BRIGHT}" />
                         <CloudShape InterpolateShapes="true">
                             <ShapeCurve>
                                 <SplinePoint>
@@ -393,7 +416,7 @@ $"""
                         <Density Value="0.0035" />
                         <NoiseScale M="9200" />
                         <EdgeSharpness Value="0.98" />
-                        <MultipleScatteringBrightness Value="1" />
+                        <MultipleScatteringBrightness Value="{BRIGHT}" />
                         <CloudShape InterpolateShapes="true">
                             <ShapeCurve>
                                 <SplinePoint>
@@ -491,7 +514,7 @@ $"""
                         <Density Value="0.0035" />
                         <NoiseScale M="9200" />
                         <EdgeSharpness Value="0.98" />
-                        <MultipleScatteringBrightness Value="1" />
+                        <MultipleScatteringBrightness Value="{BRIGHT}" />
                         <CloudShape InterpolateShapes="true">
                             <ShapeCurve>
                                 <SplinePoint>
@@ -601,7 +624,7 @@ $"""
                         <Density Value="0.0035" />
                         <NoiseScale M="9200" />
                         <EdgeSharpness Value="0.98" />
-                        <MultipleScatteringBrightness Value="1" />
+                        <MultipleScatteringBrightness Value="{BRIGHT}" />
                         <CloudShape InterpolateShapes="true">
                             <ShapeCurve>
                                 <SplinePoint>
@@ -966,13 +989,89 @@ $"""
         ),
     };
 
+    // ---------------- Every cloudy body: the 2D/volumetric switch and the clouds' light march ----------------
+    // Applied last in every file, over the game's values and ours alike (ShadowBuilder.PatchCloudLighting).
+    //
+    // The switch: volumetric clouds are drawn below EndKm and the 2D layer above StartKm. Across the band the 2D
+    // layer fades in over its first quarter and the volumetrics fade out over the rest. EndKm is where the user found
+    // the swap looked best (2026-10-03; the giants' then lowered to 14,000, 12,000 and 10,000 km, Venus's to 1,800 km), and each band keeps the proportions it had (Earth's and Mars's a third,
+    // Venus's 0.6, Titan's two thirds, the giants' and Triton's ~0.56). Where the clouds' shadows on the ground
+    // already stopped at the band's top they still do (ShadowsKm), and the giants' flicker reduction stays at 1.1x
+    // it (FlickerKm), as stock Jupiter has it; elsewhere both stay as they were.
+    //
+    // The light march: from each cloud sample the game takes LightSamples even steps toward the Sun, over the light
+    // distance or the rest of the way out of the layer if that is shorter, and its shadow volume adds whatever is
+    // left (256 x 256 x 32 voxels over the whole view, at coarse noise detail). A longer light distance therefore
+    // hands more of the path to the fine march, and past the longest path a sunbeam can take inside the layer (from
+    // its base, grazing, out through its top) more changes nothing. So that path is each layer's light distance,
+    // worked out from its cloud types and the body's radius as loaded, up to the game's own 1000 km: the giants'
+    // decks run longer only for beams within a few degrees of their horizon, which the deck has absorbed long before.
+    // Distance costs nothing; samples do. 10 for most layers (the user saw them improve up to 8-10), fewer where the
+    // layer is smooth or thin enough that fewer steps resolve it: Earth's cirrus, Mars's dust and cirrus, and Titan's
+    // hazes and Triton's wisps, which are nearly transparent. Venus 4 and Titan's clouds 2 (user, by frame rate and
+    // eye: Titan's lie under the haze shroud, lit by diffuse light anyway).
+    public static readonly (string Body, int StartKm, int EndKm, int? ShadowsKm, int? FlickerKm,
+        (string Layer, int Samples)[] Layers)[] CloudLighting =
+    {
+        ("Earth",    1000,  3000,  null,  null, new[] { ("EarthClouds", 10), ("EarthClouds2", 8) }),
+        ("Venus",    1080,  1800,  null,  null, new[] { ("VenusPlaceholderClouds", 4) }),
+        ("Mars",      670,  2000,  2000,  null, new[] { ("MarsDustStorms", 6), ("MarsCirrus", 4) }),
+        ("Jupiter",  7780, 14000, 14000, 15400, new[] { ("JupiterLowerClouds", 10), ("JupiterClouds", 10) }),
+        ("Saturn",   6720, 12000, 12000, 13200, new[] { ("SaturnClouds", 10) }),
+        ("Uranus",   5450, 10000, 10000, 11000, new[] { ("UranusClouds", 10) }),
+        ("Neptune",  5630, 10000, 10000, 11000, new[] { ("NeptuneClouds", 10) }),
+        ("Titan",    1470,  2200,  null,  null, new[] { ("TitanPlaceholderClouds", 2), ("TitanLowerHaze", 4), ("TitanDetachedHaze", 4) }),
+        ("Triton",    440,   800,  null,  null, new[] { ("TritonClouds", 4) }),
+    };
+
+    /// <summary>The longest light distance the game's cloud editor offers, and the most a layer is given.</summary>
+    public const double MaxLightDistanceKm = 1000.0;
+
+    // The longest step a layer's raymarch may take (MaxSize), where the game's does not suit drawing it from the band's
+    // top (user, 2026-10-03, by eye and frame rate). Venus's and Titan's clouds step 0.6% of the distance to the camera,
+    // capped at 1.5 km: too short to draw them from their bands' tops as fast as the giants. Longer steps sample a deck
+    // below the depth sunlight reaches and draw it darker and grainier from afar (giants/step_look.py: Venus's deck at
+    // 0.7-0.9 of its brightness with 3 km steps, 0.4-0.7 at 6 km, 0.3-0.5 at 11 km), so Venus's stops at 4 km, with
+    // fewer light samples paying for it; Titan's polar clouds, diffusely lit under the haze, take 30 km. Earth's cirrus
+    // is the other way round: its sheet is 1.2 km thick and the game let it step 4.5 km from afar, which jumped over it
+    // ~7 times in 8, so its wisps vanished as the volumetrics took over from the 2D layer (earthclouds/vol_response.py);
+    // at 0.4 km every ray samples it. It is thin and patchy, so the extra steps are mostly empty and cheap.
+    public static readonly (string Layer, int MaxStepM)[] CloudMaxSteps =
+    {
+        ("VenusPlaceholderClouds", 4000),
+        ("TitanPlaceholderClouds", 30000),
+        ("EarthClouds2", 400),
+    };
+
+    // A cloud type's density, where the game's falls short of its own 2D layer. Earth's cirrostratus at 0.002/m came out
+    // at a third of the 2D cirrus's opacity even with fine steps (the most it reached was 0.29, where the map runs to
+    // 1); four times as dense it matches it where the wisps are (map value 0.3: 0.29, the 2D layer's 0.30) and comes to
+    // 84% of it over the whole map. The faintest wisps (map values up to 0.2) stay fainter than in 2D: the game's
+    // coverage rule keeps nothing below 0.6 x (1 - the detail tile's coverage), whatever the density
+    // (earthclouds/cirrus_quick.py).
+    // Mars's dust haze (the game's 0.0001/m) came out at a third of the 2D dust layer's opacity over the planet (0.07
+    // against the mask's mean 0.215), and a full blob (mask 0.4 and up, where the coverage is complete) at 0.26
+    // where the 2D layer shows 0.4 to 0.8. At 1.689 x the density a full blob is as opaque as mask 0.4 in 2D, seen
+    // from above over ground at the datum through the engine's 2 km steps (mars/dust_lift2.py); its optical depth,
+    // 0.41, is an ordinary dusty day's on Mars (the rovers measure 0.3-0.9), which the uniform dust in Mars's
+    // atmosphere is not given: at that amount the Sun's glow from the ground and the disc from orbit were rejected on
+    // look (user, 2026-10-04), so the drifting dust clouds carry the dusty days. The mask's fainter values are
+    // lifted to match as well (CoverageLiftFunc).
+    public static readonly (string Layer, string Type, double Density)[] CloudTypeDensities =
+    {
+        ("EarthClouds2", "CirroStratus", 0.008),
+        ("MarsDustStorms", "DiffuseDust", 0.0001689),
+    };
+
     // ---------------- Volumetric clouds for Saturn/Uranus/Neptune (Jupiter-style) ----------------
-    // {BODY} = Saturn|Uranus|Neptune, {ASSETS} = absolute mod assets dir. Coverage
+    // {BODY} = Saturn|Uranus|Neptune, {ASSETS} = absolute mod assets dir, {BASE} = the
+    // deck's base and {HEIGHT} its tower height (ShadowBuilder.InsertGiantClouds). Coverage
     // from a banding mask (make_giant_clouds.py, from the diffuse); COLOUR sampled
     // from the planet's own Diffuse cubemap (VolumetricsColorMap {BODY}_Diffuse) -
     // exactly like Jupiter. Detail + flowmap reuse Jupiter's Core textures by path
     // (no load-order dependency). Inserted after the body's </Atmosphere> (Clouds
     // is a sibling of Atmosphere). FIRST PASS - altitudes/density/coverage tunable.
+    // The band comes from CloudLighting; the light march below is replaced from it last.
     public const string GiantCloudsTemplate =
 """
 
@@ -1019,12 +1118,12 @@ $"""
                         <ScrollSpeed Value="30" />
                     </Noise>
                     <CloudType Name="GiantBands">
-                        <StartAltitude M="5000" />
+                        <StartAltitude M="{BASE}" /> <!-- deck base, per-planet -->
                         <Height M="{HEIGHT}" /> <!-- tower height, per-planet (user) -->
-                        <Density Value="0.0006" />
+                        <Density Value="{DENSITY}" />
                         <NoiseScale M="70000" /> <!-- finer noise -> more defined towers -->
-                        <EdgeSharpness Value="0.95" />
-                        <MultipleScatteringBrightness Value="1" />
+                        <EdgeSharpness Value="{SHARP}" />
+                        <MultipleScatteringBrightness Value="{BRIGHT}" />
                         <!-- ShapeCurve keeps density high well up the column so noise-driven peaks
                              tower rather than roll; sharp base, gradual taper to the tops -->
                         <CloudShape InterpolateShapes="true">
@@ -1045,12 +1144,12 @@ $"""
                          (GetCoverageAndCloudType in CloudFunctions.glsl), so most of the planet
                          stays on the deck above and storms appear where the mask says so. -->
                     <CloudType Name="GiantBandEdge">
-                        <StartAltitude M="5000" />
+                        <StartAltitude M="{BASE}" />
                         <Height M="{HEIGHT_EDGE}" />
-                        <Density Value="0.00042" />
+                        <Density Value="{DENSITY_EDGE}" />
                         <NoiseScale M="95000" />
-                        <EdgeSharpness Value="0.6" />
-                        <MultipleScatteringBrightness Value="1" />
+                        <EdgeSharpness Value="{SHARP_EDGE}" />
+                        <MultipleScatteringBrightness Value="{BRIGHT}" />
                         <!-- ragged belt edges: rounder than the deck, taper starts earlier -->
                         <CloudShape InterpolateShapes="true">
                             <ShapeCurve>
@@ -1086,8 +1185,8 @@ $"""
                             <IsVirtual>false</IsVirtual>
                             <Manifest><MaxSize>0</MaxSize><MipMaps>true</MipMaps></Manifest>
                         </Texture>
-                        <Displacement Km="{DISP}"/> <!-- per-planet, calibrated to real peak zonal winds -->
-                        <LoopDuration Hours="{LOOP}"/>
+                        <Displacement Km="{DISP2D}"/> <!-- how far the map travels in a loop at full flow; with the loop, the planet's real peak zonal wind -->
+                        <LoopDuration Hours="{LOOP2D}"/>
                     </FlowMap>
 """;
 
@@ -1170,17 +1269,18 @@ $"""
     // ---------------- Astronomicals.xml: Jupiter clouds at realistic altitudes ----------------
     // The stock showcase decks (220 km base, towers to 770 km) forced a puffed-up
     // atmosphere to envelope them. Rescaled (mesh = 1 bar): lower deck -1..+12 km, main
-    // deck 15..68 km. The main deck's tallest clouds, and the 2D billboard at its top,
-    // reach Jupiter's visible edge: where its measured stratospheric haze turns opaque
-    // to a grazing line of sight (tangent optical depth 1-2 at 65-75 km, ~30 mbar;
-    // Zhang et al. 2013's haze, see make_flight_atmospheres.py). At the clouds' measured
-    // top (~150 mbar, 39 km) the measured gas above glowed as a blue ring along the limb
-    // (blue optical depth ~5 along it) that Jupiter's photos never show; above 68 km it
-    // is ~1. From above the deck looks solid at ~90 mbar (the measured haze reaches
-    // optical depth 1 near 280 mbar). Densities are multiplied by the same factor the
-    // heights shrank by (optical depth ~ density x thickness stays put); the raymarch
-    // steps and light distance, shared by both decks, suit both. Applied only inside the
-    // two Jupiter cloud layers' span.
+    // deck 15..111 km (4.5 mbar at its top). That is far above Jupiter's measured cloud
+    // tops (~150 mbar, 39 km), deliberately, as Uranus's and Neptune's decks are above
+    // theirs: the planet's map is a photograph, which already holds whatever the gas
+    // and haze above the clouds do to them, so the game should add little more. Here
+    // as little shows above the deck as above Neptune's (green optical depth ~0.35
+    // along the limb, Neptune ~0.4). With the deck at its measured top the measured gas
+    // glowed as a blue ring along the limb that Jupiter's photos never show, and at
+    // 68 km, where the measured haze turns opaque to a grazing view, the disc still
+    // took a veil toward its edge from afar (user, 2026-10-03). Densities are
+    // multiplied by the same factor the heights shrank by (optical depth ~ density x
+    // thickness stays put); the raymarch steps and light distance, shared by both
+    // decks, suit both. Applied only inside the two Jupiter cloud layers' span.
 
     public const string JupiterCloudsMarker = "Jupiter clouds rescaled to realistic altitudes";
     public const string JupiterCloudsMarkerComment =
@@ -1204,14 +1304,32 @@ $"""
         ("<StartAltitude M=\"-4000\" />\n                        <Height M=\"220000\" />\n                        <Density Value=\"0.0007999999797903001\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1\" />",
          "<StartAltitude M=\"-1000\" />\n                        <Height M=\"13000\" />\n                        <Density Value=\"0.0136\" />\n                        <NoiseScale M=\"120000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1\" />", 1),
         // main deck: base 220 km -> 15 km (raised so vortex roots clear the
-        // mesh - black spots fix); heights /10.4 (the earlier /5.73 cut, whose tops
-        // reached ~111 km, 4.5 mbar, in the stratosphere, then x0.55 to Jupiter's
-        // visible edge: tops 68 km), densities scaled inversely
+        // mesh - black spots fix); heights /5.73 (tops 111 km), densities scaled inversely
         ("<StartAltitude M=\"220000\" />", "<StartAltitude M=\"15000\" />",  4),
-        ("<Height M=\"440000\" />",        "<Height M=\"34100\" />",         1),
-        ("<Height M=\"550000\" />",        "<Height M=\"52800\" />",         1),
-        ("<Density Value=\"0.0000081\" />","<Density Value=\"0.0001035\" />", 1),
-        ("<Density Value=\"0.00035\" />",  "<Density Value=\"0.003636\" />", 1),
+        ("<Height M=\"440000\" />",        "<Height M=\"62000\" />",         1),
+        ("<Height M=\"550000\" />",        "<Height M=\"96000\" />",         1),
+        ("<Density Value=\"0.0000081\" />","<Density Value=\"0.0000569\" />", 1),
+        // The tall type (HighDensityCloud) at the low type's density, not the game's 43 times it (0.002 here).
+        // A cloud's density sets how bright the engine draws it, whatever its colour: light on a dense cloud
+        // comes from its top skin, where the engine's dark-edge term cuts the scattered light, and the long
+        // steps taken from afar are lit at their far ends, deep inside it. The thin type is the one that
+        // matches the 2D layer (0.135 x 8 here against 0.12 x the Sun's 9 there). So the game's mask, which
+        // puts the dense type on the dark belts, drew them far darker in 3D than the 2D map (user, 2026-10-05),
+        // and with the mask's grey and white swapped (JupiterMaskSwapped) the bright zones turned dark and the
+        // belts light. At one density the mask sets height alone. These thin values are what the deck falls
+        // back on; where the raymarch lights a thick step at its face (FaceLight) both types are made dense
+        // again at the 2D map's brightness by JupiterDenseDeck. The storm types stay as they are.
+        ("<Density Value=\"0.00035\" />",  "<Density Value=\"0.0000569\" />", 1),
+        // The two deck types morph into each other, as the storm types do, where the game cross-fades them.
+        // Cross-faded, each keeps its own extent, so a little of the tall type among the low one is not a
+        // slightly taller deck but the low deck with the tall type's strongest puffs standing on it at full
+        // height: with the mask a twentieth of the way from the low type to the tall one the median puff tops
+        // out at 67 km and the tallest at 100 (scratchpad giants/jupiter_spikes.py). Thin, as the game has
+        // them at that end, those were wisps; dense, they are spikes 30 km tall along every edge between low
+        // and tall deck (user, 2026-10-05: "artifacts around the transition zones that spike up creating
+        // walls"). Morphed, the deck's top rises evenly with the mask: tallest puff 76 km at the low type, 79,
+        // 87, 93 and 108 km on the way to the tall one. The mod's mask is built for that (make_jupiter_mask.py).
+        ("<CloudShape InterpolateShapes=\"false\">", "<CloudShape InterpolateShapes=\"true\">", 2),
         // The two storm types carry height, density and brightness in one edit each,
         // because every anchor is checked against the pristine span before anything is
         // applied: an anchor written against already-edited text skips the whole rescale.
@@ -1222,20 +1340,20 @@ $"""
         // bright: lower these. Still dark: raise the storm heights and drop their
         // densities in step, so the optical depth holds.
         ("<Height M=\"55000\" />\n                        <Density Value=\"0.00018\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />",
-         "<Height M=\"5500\" />\n                        <Density Value=\"0.001873\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
+         "<Height M=\"10000\" />\n                        <Density Value=\"0.00103\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
         ("<Height M=\"330000\" />\n                        <Density Value=\"0.0004\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />",
-         "<Height M=\"25300\" />\n                        <Density Value=\"0.005073\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
+         "<Height M=\"46000\" />\n                        <Density Value=\"0.00279\" />\n                        <NoiseScale M=\"420000\" />\n                        <EdgeSharpness Value=\"0.0\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />", 1),
         // raymarch scale: steps and light reach shrink with the layer thickness
         ("<Size M=\"10000\" />",           "<Size M=\"1500\" />",            2),
         ("<MaxSize M=\"175000\" />",       "<MaxSize M=\"25000\" />",        2),
         ("<LightDistance M=\"120000\" />", "<LightDistance M=\"17500\" />",  2),
-        // Noise scale follows the rescale: /10.4 for the main deck, /5.5 for the lower
+        // Noise scale follows the rescale: /5.73 for the main deck, /5.5 for the lower
         // one, which puts noise/height back in stock's 0.5-1.3 band (7.3 for the vortex
         // core, stock 7.6). Without this the noise is far larger than the deck is deep,
         // so storms render as hard-edged slabs instead of being eroded into shape.
         // Must stay after the per-type edits above: those carry the stock NoiseScale
         // through untouched, so the counts here still match.
-        ("<NoiseScale M=\"420000\" />",    "<NoiseScale M=\"40150\" />",     4),
+        ("<NoiseScale M=\"420000\" />",    "<NoiseScale M=\"73000\" />",     4),
         ("<NoiseScale M=\"120000\" />",    "<NoiseScale M=\"7000\" />",     2),
         // 2D billboards (user-tuned): JupiterClouds 0.95 (its 2D block is the
         // one with a FlowMap - unique discriminator), JupiterLowerClouds 1.
@@ -1247,11 +1365,74 @@ $"""
         // Flow-rate realism: stock uses "ridiculous" demo speeds (the 2D flowmap
         // is ~4000 m/s vs Jupiter's real ~150 m/s peak jets). Calibrate all three
         // Jupiter flowmaps to ~150 m/s: velocity = flowValue_peak x Disp / Loop,
-        // flowValue_peak ~= 0.70. 2D (1h) & vol-B (1h) -> 770 km; vol-A (0.5h) -> 385 km.
-        ("<Displacement Km=\"21080.0\"/>", "<Displacement Km=\"770.0\"/>",   1),
+        // flowValue_peak ~= 0.70. vol-B (1h) -> 770 km; vol-A (0.5h) -> 385 km. The 2D map travels
+        // Giant2DFlowDisplacementKm in a loop instead, so that its motion shows, over 5.195 h: the same 150 m/s.
+        ("<Displacement Km=\"21080.0\"/>\n                        <LoopDuration Hours=\"1.0\"/>",
+         "<Displacement Km=\"4000.0\"/>\n                        <LoopDuration Hours=\"5.195\"/>",   1),
         ("<Displacement Km=\"1840.0\"/>",  "<Displacement Km=\"385.0\"/>",   1),
         ("<Displacement Km=\"1240.0\"/>",  "<Displacement Km=\"770.0\"/>",   1),
     };
+
+    // Saturn's, Uranus's and Neptune's two deck types (GiantBands, GiantBandEdge in GiantCloudsTemplate): density
+    // per metre, edge sharpness and MultipleScatteringBrightness. Dense where the raymarch lights a thick step at
+    // its face (FaceLight): Jupiter's deck values, asked for by the user once Jupiter's had its puffs back
+    // (2026-10-05: "we'll want the other giants raised to have the same changes as Jupiter"). At 0.0006 and
+    // 0.00042 per metre their mean free path was 1.7 and 2.4 km, three to five times Jupiter's 0.5 km, and the
+    // lower type's edges faded over 0.4 of the erosion's range where Jupiter's take 0.03. Lit at the face at
+    // Jupiter's density and sharpness they come out at Jupiter's brightness (0.080 and 0.054 against the 2D
+    // map's 0.138 and 0.089 with the Sun 30 and 60 degrees from overhead, both types, all three planets:
+    // scratchpad giants/deck_face.py), so they take Jupiter's 1.7 as well. Their shapes morph already and their
+    // masks hold no step a dense deck would show as a wall (giants/giant_walls.py). Soft is what they were, and
+    // what they fall back on.
+    public static readonly (string Density, string DensityEdge, string Sharpness, string SharpnessEdge, string Brightness)
+        GiantDeckDense = ("0.002", "0.002", "0.97", "0.97", "1.7"),
+        GiantDeckSoft = ("0.0006", "0.00042", "0.95", "0.6", "1");
+
+    // Jupiter's two deck types (LowDensityCloud, HighDensityCloud) dense again: 0.002 per metre, the tall type's
+    // value before, a mean free path of 0.5 km against the thin types' 17.6 km. At the thin density the puffs the
+    // noise carves are seen through, each a soft gradient 50 km deep (user, 2026-10-05: "swirls of cotton candy
+    // compared to the dense and organic puffs from before"); dense, they have faces. Applied only where the
+    // raymarch lights a thick step at its face (FaceLight), which is what keeps a dense deck's brightness from
+    // falling with the camera's distance. What is left is the engine's dark-edge term: lit at its face the dense
+    // deck comes out at 0.57-0.60 of the thin one's brightness (0.078 against 0.138 with the Sun 30 degrees from
+    // overhead, 0.053 against 0.089 at 60: scratchpad giants/deck_face.py), the thin one being the 2D map's. The
+    // types' MultipleScatteringBrightness, which multiplies the scattered light and so all but a hundredth of it,
+    // makes that up: 1.7. (The game's cloud editor offers 0 to 1 for it; the value is not clamped on load.)
+    // Anchored on JupiterCloudEdits' result: both types' lines are the same there.
+    public const string JupiterDenseDeckStock =
+        "<Density Value=\"0.0000569\" />\n                        <NoiseScale M=\"73000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.0\" />";
+    public const string JupiterDenseDeck =
+        "<Density Value=\"0.002\" />\n                        <NoiseScale M=\"73000\" />\n                        <EdgeSharpness Value=\"0.97\" />\n                        <MultipleScatteringBrightness Value=\"1.7\" />";
+
+    // ---------------- Astronomicals.xml: Jupiter's main deck, its mask's grey and white swapped ----------------
+    // Jupiter's main deck takes coverage and cloud type from one channel of the game's JupiterMask.dds. Its flat
+    // grey (171/255, two thirds along the type axis) is LowDensityCloud, 15-77 km and thin; white is
+    // HighDensityCloud, 15-111 km and dense; darker than grey runs down the storm types to the black cores of the
+    // deep vortices. The mask is the colour map's darkness (correlation -0.85 by band): white wisps follow the dark
+    // belts, grey fills the bright zones, so the dark parts of Jupiter stood tallest (user, 2026-10-05: "the
+    // darker bands and wisps sit higher", wanting the grey swapped with the white and the vortices left deep).
+    // Jupiter's bright zones are its high clouds. The mod's mask is the game's with grey and white changed
+    // places (make_jupiter_mask.py): zones' grey to the tall type, whiter as far toward the low one as it was
+    // toward the tall one, vortex cores untouched. 550 of the vortices sit in a small grey disc of their own with
+    // white around it, which a swap by value alone would raise into a ring around each; those discs are found as
+    // connected regions and left low. The mirror keeps all of the game's relief, upside down (99% of it, by the
+    // mean step between texels two apart). A build that opened and low-passed the whole mirrored height, to be rid
+    // of walls, left half of it (user, 2026-10-05: "it's too smooth now. There's none of the relief that was
+    // there before that made it look so dynamic"); the walls came from the cross-fade the deck types no longer do
+    // (JupiterCloudEdits). What the mirror itself adds is a ring of the tall type where a ramp from white down to
+    // a dark region (the black poles, a vortex standing in a zone) passes through grey, so only within 10 texels
+    // of such a region is the mirrored height opened. The deck's face, from the colour map's darkest tenth to
+    // its brightest, goes from 100 / 99 / 97 / 95 / 91 / 82 / 73 / 71 / 70 / 70 km to 73 / 81 / 85 / 89 / 93 / 97 /
+    // 100 / 101 / 101 / 101 km (scratchpad giants/jupiter_mask_v3.py). Same format and size as the game's file
+    // (BC4, 8192 x 4096, no mips). Delete the asset to return to the game's mask.
+
+    public const string JupiterMaskAsset = "JupiterCloudsMask.dds";
+
+    public const string JupiterMaskStock =
+        "<Texture Id=\"JupiterMask\" Path=\"Textures/Clouds/Compressed/JupiterMask.dds\" Category=\"Terrain\">";
+
+    public const string JupiterMaskSwapped =
+        "<Texture Id=\"JupiterMask\" Path=\"{ASSETS}\\JupiterCloudsMask.dds\" Category=\"Terrain\">";
 
     // ---------------- SolSystem(Dense).xml: Titan cloud transition settings ----------------
     // The stock block was copied from Venus (150/250 km) for the 20-55 km
@@ -1259,6 +1440,7 @@ $"""
     // volumetric->2D fade completed BELOW the layers (only the faint 2D smudge
     // ever showed from orbit). Raised well above the top lamina.
 
+    // (CloudLighting then sets the band itself, and the clouds' light march, last.)
     public static readonly (string Stock, string Corrected, string Marker)[] TitanTransitionPairs =
     {
         (
@@ -1706,7 +1888,7 @@ $"""
                 <TwoDimensionalCloud>
                     <Texture Id="MarsCirrusMask2D" Path="{ASSETS}\MarsCirrusMask2D.png" Category="Terrain"/>
                     <Color R="0.95" G="0.98" B="1.0" />
-                    <Lambertian Value="0.9" />
+                    <Lambertian Value="0.6" /> <!-- user-tuned: between a solid surface's shading (it was 0.9, dark well before the terminator, where the volumetric cirrus is still lit) and none (0: too sudden at the terminator) -->
                 </TwoDimensionalCloud>
                 <MatchGroundColor Value="false" />
             </Layer>
@@ -1831,77 +2013,130 @@ float raVNoise3(vec3 x)
                    mix(raHash13(i + vec3(0,1,1)), raHash13(i + vec3(1,1,1)), u.x), u.y), u.z);
 }
 
-// Pluto haze-band multiplier for the Mie density. horizDir = the sample's planet-relative unit
-// direction: pass vec3(0.0) for the vertical-only (LUT / azimuthally-symmetric) form, or the
-// REAL direction (from the per-pixel march) to add azimuthal undulation + per-band break-up.
-// Shared by both paths so the vertical structure matches exactly.
+// The haze bands of Pluto, Titan and Triton: a multiplier on the haze's density that cuts its smooth falloff into a ladder.
+// horizDir = the sample's planet-relative unit direction: pass vec3(0.0) for the vertical-only (LUT /
+// azimuthally-symmetric) form, or the REAL direction (from the per-pixel march) to add azimuthal undulation and
+// per-band break-up. Shared by both paths so the vertical structure matches.
+//
+// WHAT A BAND IS. Altitude is cut into bands, each ending at a LID at its top. A band's own falloff curve makes it
+// densest just under its lid and thinner downward: density ~ (depth below the lid) ^ -S, against the smooth haze,
+// with the band's column kept (what is gathered under the lid is taken from the rest of the band). It used to be
+// a bump of EXTRA density at each band's middle, on top of the smooth haze: every band then outshone the gap under
+// it, the bands were all much alike, and they added a sixth to the haze's column: a barcode (user, 2026-10-06).
+// Why this curve: along a grazing line of sight a flat shelf of density hardly shows (a few percent on Pluto). A
+// staircase in BRIGHTNESS, each band evenly bright down to the next lid, needs just this density: turn the smooth
+// limb's brightness into steps, invert it (Abel), and the density through a band runs as depth ^ -0.35 on Pluto and
+// ^ -0.8 on Titan under a sharp top (scratchpad giants/haze_abel.py). So each band is less dense, and fainter, than
+// the one below, and none outshines what lies beneath it. It is also how settling haze under a stable layer looks:
+// a sharp top, a diffuse underside.
+//
+// SOFT AND MESSY (user, 2026-10-06, on the first ladder: "Titan's haze layers look too sharp, rather than the messy
+// look they have in pictures. The fix to this should be applied globally"). The lids were lines (6-35% of a band
+// deep, a few km) on arcs as smooth as the undulation, one ladder of evenly deep bands. Now, on every haze body alike:
+//   lids are SHOULDERS: 18-75% of a band deep
+//   lids are RAGGED: a finer undulation on top of the first, a fifth of a band, that changes with altitude, so
+//     neighbouring lids are not parallel arcs
+//   SUB-LAYERS: a second, finer ladder inside the first (about 2.7 to a band, unevenly deep), each sub-band with
+//     its own strength and soft lid and a third of them missing: uneven spacing, doubled lids, bands that merge
+// The strengths are a little higher to hold the bands' visibility through the softening (scratchpad
+// giants/haze_ladder2.py: Titan 0.96-1.04 of the smooth limb where the first ladder had 0.95-1.05; Triton the same,
+// 0.96-1.04, scratchpad triton/triton_bands.py).
 //
 // ---- TUNING GUIDE ----
-//   band COUNT:       `spacing` below (nominal spacing in m; smaller = more layers.
-//                     Pluto 11000 => ~18 layers below 200 km)
-//   more CONTINUOUS   flatCancel smoothstep(0.38,0.58) -> lower both / replace with 1.0 to disable;
-//   (vs patchy):      coverage smoothstep first arg lower; occ floor 0.3 -> raise toward 1.0
-//   layer SHARPNESS:  widthExp mix(0.5,3.0) (raise => thinner streaks); leading 1.0 in return (contrast)
-//   brightness var:   strength 0.3 + 1.3*...
-//   irregularity:     rSpacing 0.6+0.8 ; buWarp 0.5/0.2 ; undulation 1.4*hAlt
+//   band COUNT:       `spacing` (a band's depth in m; smaller = more bands. Pluto 11000 => ~18 below 200 km)
+//   ladder STRENGTH:  `ladder`: the exponent S of a full band's curve. 0 = the smooth haze. As concentric shells
+//                     (the LUTs' form, Pluto 0.6) less is needed than in the march (1.4), which sees the bands
+//                     through their undulation
+//   LID softness:     lidLo..lidHi: the share of a band over which it ends at its top (small = a crisp line)
+//   RAGGEDNESS:       the 0.20 in `ragged` (bands of fine undulation) ; its horizDir * 27.0 (finer = bigger)
+//   SUB-LAYERS:       subPhase's 2.7 (how many to a band) ; the 0.6 in `sub` (their strength against the band's;
+//                     0 = none) ; step(0.35, ...) (the share of them missing)
+//   more CONTINUOUS   flatCancel smoothstep(0.28,0.44) -> lower both / replace with 1.0 to disable;
+//   (vs patchy):      coverage smoothstep first arg lower; occ floor 0.3 -> raise toward 1.0. A band that is
+//                     cancelled is the smooth haze there: it fades into the background, it leaves no hole
+//   band-to-band var: strength (0.19-1 of the full curve in the march)
+//   irregularity:     rSpacing 0.6+0.8 ; buWarp 0.2/0.05 ; undulation 1.4*hAlt
 //   animation:        rotAngle *1.3e-5 (spin) ; evolveT *3.0e-5 (morph) ; sT = evolveT*0.5 (layout)
 //   patch sizes:      the horizDir * N multipliers (bigger N = finer horizontal features)
+
+// A band's own falloff curve: density against the smooth haze at `depth` below the band's lid (in bands: 0 at the
+// lid, 1 at its bottom), (depth) ^ -S rounded off over the lid, over its mean through the band, so the band keeps
+// its column. S = 0 is the smooth haze.
+float RaHazeBandCurve(float depth, float lid, float S)
+{
+    S = min(S, 0.97);
+    if (S <= 0.0)
+        return 1.0;                                          // no curve: the smooth haze (what the lines below give, without their five powers)
+    float lidOffset = 0.5 * lid;
+    float low = pow(1.0 + lidOffset, -S);                    // the curve at the band's bottom, and above its lid
+    float curve = low + (pow(depth + lidOffset, -S) - low) * smoothstep(0.0, lid, depth);
+    float mean = (pow(1.0 + lidOffset, 1.0 - S) - pow(lidOffset, 1.0 - S)) / (1.0 - S)
+               - 0.5 * lid * (pow(0.25 * lid + lidOffset, -S) - low);
+    return curve / mean;
+}
+
 float PlutoHazeBandFactor(float seaLevelAltitude, vec3 horizDir, float evolveT, float bottomRadius)
 {
-    // PER-BODY: Titan wants much wider spacing + wider, more-varied layer thickness than Pluto.
+    // PER-BODY: Titan's bands are far deeper than Pluto's. Everything else is the same for every haze body.
+    // Triton takes Pluto's values. Voyager saw its haze as one even layer and no bands in it (Rages & Pollack 1992:
+    // an 11 km scale height, seen to ~30 km), so nothing here is measured. It is the same thin nitrogen air under
+    // much the same gravity and day as Pluto's, so if its haze is layered as Pluto's is, the layers are as deep:
+    // three of them in those 30 km, a few percent of a haze a seventh as thick (user, 2026-10-06: "add back Triton's
+    // hazes according to reality, even if it turns out they are barely visible").
     bool isTitan = bottomRadius > 2000000.0;
-    float spacing = isTitan ? 40000.0 : 11000.0;          // nominal band spacing (m); Pluto: ~18 layers below 200 km
+    if (isTitan && seaLevelAltitude <= 28000.0)
+        return 1.0;                                       // under Titan's bands (altFade below is 0 there): nothing to work out
+    bool horiz = dot(horizDir, horizDir) > 0.5;
+    float spacing = isTitan ? 40000.0 : 11000.0;          // a band's nominal depth (m); Pluto: ~18 bands below 200 km
                                                           // (New Horizons counted ~20, Cheng et al. 2017)
-    float wLo = isTitan ? 0.3 : 0.5;                       // band-width range: low exp = wide/cloudy,
-    float wHi = isTitan ? 1.6 : 3.0;                       // high exp = thin streak; wider range = varied depths
+    float lidLo = 0.18;                                   // the lid: the share of the band over which it ends at
+    float lidHi = 0.75;                                   // its top. Low = a crisp line, high = a soft shoulder
     float warp = isTitan ? 0.25 : 1.0;                    // band-POSITION warp (undulation + regional spacing/
                                                           // phase). LOW on Titan so the atmosphere edge stays
-                                                          // regular (varied layer thickness, smooth outline).
-    float bandAmp = isTitan ? 0.8 : 0.6;                  // OPACITY of OUR haze layers (the band modulation)
-                                                          // on top of the base Mie/Rayleigh. Lower = subtler
-                                                          // layers, 0 = none. Doesn't touch the base atmosphere.
-    // bandCurve = 1.0 = evenly-spaced layers (Pluto's real hazes ARE even, and the periodic
-    // cosine ridge below gives the natural haze/gap rhythm). Lower it (<1) only if a body should
-    // read progressively SPARSER with altitude; `spacing` is then the near-surface gap.
+                                                          // regular (varied band depth, smooth outline).
+    float ladder = horiz ? 1.4 : 0.6;                     // the exponent of a full band's curve (see the guide)
+    // bandCurve = 1.0 = evenly deep bands. Lower it (<1) only if a body's bands should grow DEEPER with
+    // altitude; `spacing` is then the depth near the surface.
     float bandCurve = 1.0;
     float bu = pow(max(seaLevelAltitude, 0.0) / spacing, bandCurve);
-    bool horiz = dot(horizDir, horizDir) > 0.5;
-    float sT = evolveT * 0.5;   // the band LAYOUT evolves too (slower than coverage) so the clouds
-                                // don't just slide across a static grid of bands.
+    float sT = evolveT * 0.5;   // the band LAYOUT evolves too (slower than coverage) so the haze
+                                // doesn't just slide across a static grid of bands.
 
-    // REGIONAL LAYOUT: band spacing + phase vary slowly across the limb, so different
-    // longitudes get genuinely different band altitudes/spacing - not one fixed layout warped.
+    // REGIONAL LAYOUT: band depth + phase vary slowly across the limb, so different
+    // longitudes get genuinely different lid altitudes - not one fixed layout warped.
     float rSpacing = horiz ? mix(1.0, 0.6 + 0.8 * raVNoise3(horizDir * 2.5 + vec3(0.0, 0.0, sT)), warp) : 1.0;
     float rPhase   = horiz ? warp * raVNoise3(horizDir * 2.9 + vec3(0.0, 0.0, sT) + 11.0) : 0.0;
     float hAlt     = horiz ? warp * (raVNoise3(horizDir * 9.0 + vec3(0.0, 0.0, sT)) - 0.5) : 0.0;
+    // RAGGEDNESS: a finer undulation on top, in bands, that changes with altitude: the lids are not parallel arcs.
+    // Not scaled by warp: it is too fine to move the atmosphere's outline.
+    float ragged   = horiz ? 0.20 * (raVNoise3(horizDir * 27.0 + vec3(0.0, bu * 0.6, sT)) - 0.5) : 0.0;
 
-    // IRREGULAR SPACING: domain-warp the altitude (2 octaves, seeded per region) so bands
-    // aren't evenly spaced and the spacing pattern differs region to region.
+    // IRREGULAR DEPTH: domain-warp the altitude (2 octaves, seeded per region) so bands
+    // aren't evenly deep and the pattern differs region to region.
     float buWarp = warp * (0.2 * (raVNoise(bu * 0.4 + rPhase * 5.0 + sT) - 0.5) + 0.05 * (raVNoise(bu * 1.5 + rPhase * 5.0 + sT) - 0.5));
-    float phase = (bu + buWarp) / rSpacing + rPhase + 1.4 * hAlt;
-    float idx = floor(phase + 0.5);                          // band index (steps in the gaps)
-    float ridgeRaw = 0.5 + 0.5 * cos(6.28318530718 * phase);  // 0..1, =0 between bands (no seams)
-    // BAND WIDTH varies per band + region: high exponent = thin streak, low = wide soft cloudy
-    // haze (and adjacent wide bands merge into blobs).
-    float widthExp = horiz ? mix(wLo, wHi, raVNoise3(horizDir * 3.5 + vec3(idx * 5.1, 0.0, sT))) : mix(wLo, wHi, 0.5);
-    float ridge = pow(ridgeRaw, widthExp);
+    float phase = (bu + buWarp) / rSpacing + rPhase + 1.4 * hAlt + ragged;
+    float idx = floor(phase);                                // band index: band idx runs from phase idx up to its lid at idx + 1
+    float depth = 1.0 - (phase - idx);                       // depth below the band's lid, in bands: 0 at the lid, 1 at its bottom
+    // The LID's softness varies per band + region: a line here, a broad shoulder there.
+    float lid = horiz ? mix(lidLo, lidHi, raVNoise3(horizDir * 3.5 + vec3(idx * 5.1, 0.0, sT))) : mix(lidLo, lidHi, 0.5);
 
-    // PER-BAND density (varies smoothly across the limb and per band).
-    float strength = horiz ? 0.3 + 1.3 * raVNoise3(horizDir * 4.0 + vec3(0.0, 0.0, idx * 1.7 + sT))
-                           : 0.55 + 0.9 * raHash11(idx * 1.7 + 0.5);
+    // PER-BAND strength of its curve, 0..1 of the full one (varies smoothly across the limb and per band).
+    float strength = horiz ? (0.3 + 1.3 * raVNoise3(horizDir * 4.0 + vec3(0.0, 0.0, idx * 1.7 + sT))) / 1.6
+                           : (0.55 + 0.9 * raHash11(idx * 1.7 + 0.5)) / 1.45;
 
-    // CLOUD-LIKE COVERAGE: cancel MOST of the layering in coherent patches, so the bands read
-    // as a broken cloud deck, not near-total coverage. 'coverage' is idx-independent (clears
-    // whole regions -> real gaps through the line of sight); 'bandPresence' varies per band.
-    // Product of the two -> aggressive cancellation. Raise the smoothstep windows to cancel more.
+    // BAND LENGTH: cancel MOST of the laddering in coherent patches, so the bands read as broken sheets, not
+    // shells around the whole body. 'coverage' is idx-independent (clears whole regions); 'bandPresence' varies
+    // per band. Where a band is cancelled its curve flattens to the smooth haze: it bleeds into the background.
     float occ;
+    float region = 1.0;                                      // the regional part alone, for the sub-layers
     if (horiz)
     {
         float coverage     = smoothstep(0.40, 0.62, raVNoise3(horizDir * 3.0 + vec3(0.0, 0.0, evolveT) + 7.0));
         float bandPresence = smoothstep(0.42, 0.66, raVNoise3(horizDir * 5.5 + vec3(idx * 2.3, 0.0, evolveT)));
-        float flatCancel   = smoothstep(0.28, 0.44, raVNoise3(horizDir * 7.0 + vec3(0.0, idx * 3.7, evolveT))); // Some cancel but ROUNDED/tapered ends, not square; evolveT morphs it
-        // regional thinning keeps a 30% residual floor; the flat per-band cancel drops bands outright
+        float flatCancel   = smoothstep(0.28, 0.44, raVNoise3(horizDir * 7.0 + vec3(0.0, idx * 3.7, evolveT))); // some bands end outright, with ROUNDED/tapered ends; evolveT morphs it
+        // regional thinning keeps a 30% residual floor; the flat per-band cancel ends bands outright
         occ = (0.3 + 0.7 * coverage * bandPresence) * flatCancel;
+        region = 0.3 + 0.7 * coverage;
     }
     else occ = step(0.18, raHash11(idx * 3.1 + 9.2));
 
@@ -1909,7 +2144,16 @@ float PlutoHazeBandFactor(float seaLevelAltitude, vec3 horizDir, float evolveT, 
     // hazes are high; the lower atmosphere is a uniform thick haze) AND it keeps the bands off the
     // 2D cloud's terminator, where marched-vs-LUT atmosphere differences were seaming.
     float altFade = isTitan ? smoothstep(28000.0, 55000.0, seaLevelAltitude) : 1.0;
-    return 1.0 + bandAmp * altFade * ridge * strength * occ;
+
+    // SUB-LAYERS: a second, finer ladder inside the first, unevenly deep, each sub-band with its own strength and
+    // soft lid, a third of them missing. It rides the same undulation, so it follows the bands it lies in.
+    float subPhase = phase * 2.7 + 0.37 + 0.5 * (raVNoise(phase * 1.9 + 5.3) - 0.5);
+    float subIdx = floor(subPhase);
+    float subLid = 0.35 + 0.55 * raHash11(subIdx * 2.1 + 4.7);
+    float subStrength = raHash11(subIdx * 1.3 + 8.1) * step(0.35, raHash11(subIdx * 5.7 + 1.9));
+    float sub = RaHazeBandCurve(1.0 - (subPhase - subIdx), subLid, 0.6 * ladder * altFade * subStrength * region);
+
+    return RaHazeBandCurve(depth, lid, ladder * altFade * strength * occ) * sub;
 }
 
 // Which bodies carry haze bands, keyed on the (unique, per-body) radius in metres. This is a
@@ -1917,13 +2161,28 @@ float PlutoHazeBandFactor(float seaLevelAltitude, vec3 horizDir, float evolveT, 
 // ozone-Altitude sentinel). bottomRadius = MeanRadius + Visual StartHeight; the Real Surfaces
 // mod lowers StartHeight below each body's terrain floor (so the atmosphere covers the low
 // topography), shifting bottomRadius by up to ~a few km. The 20 km tolerance absorbs that and
-// still uniquely identifies these two (their radii are >1000 km apart). Add bodies here;
+// still uniquely identifies these three (their radii are >160 km apart). Add bodies here;
 // params live in PlutoHazeBandFactor (branch on bottomRadius when a second body differs).
-// Not Triton: Voyager saw its haze as one even layer, 11 km high, without Pluto's stacked layers.
+// Patches.IsHazeBody (the haze clock) lists the same bodies: keep the two in step.
 bool RaBodyHasHaze(float bottomRadius)
 {
     return abs(bottomRadius - 1188300.0) < 20000.0    // Pluto  (r = 1188.3 km)
+        || abs(bottomRadius - 1353400.0) < 20000.0    // Triton (r = 1353.4 km)
         || abs(bottomRadius - 2575500.0) < 20000.0;   // Titan  (r = 2575.5 km)
+}
+
+// Triton among them, for the two values it has of its own (the march's blend zone and its spin axis).
+bool RaHazeBodyIsTriton(float bottomRadius)
+{
+    return abs(bottomRadius - 1353400.0) < 20000.0;
+}
+
+// Whether the bands are wanted: the player's switch (Settings.HazeBands, in the mod's page of the Mods menu). It
+// comes with the haze clock, which the mod puts in a haze body's ozone extent as elapsed seconds: a clock run
+// backwards is the bands switched off. A body's own extent, where no clock is sent, is never negative.
+bool RaHazeBandsOn(float hazeClock)
+{
+    return hazeClock > -0.5;
 }
 
 // Measured Rayleigh gas density for Earth (US Standard Atmosphere 1976), Venus (VIRA) and the four
@@ -1958,29 +2217,26 @@ vec2 RaBaseDensity(float seaLevelAltitude, float rayleighScaleHeight, float mieS
 
 // Haze params are hardcoded per body, so this generalises to any body (incl. ones using ozone)
 // without a free push-constant slot.
-vec2 AtmosphereDensityFalloff(float seaLevelAltitude, float rayleighScaleHeight, float mieScaleHeight, vec3 mieAsymmetry, float bodyRadius)
+vec2 AtmosphereDensityFalloff(float seaLevelAltitude, float rayleighScaleHeight, float mieScaleHeight, vec3 mieAsymmetry, float bodyRadius, float hazeClock)
 {
     vec2 density = RaBaseDensity(seaLevelAltitude, rayleighScaleHeight, mieScaleHeight, mieAsymmetry, bodyRadius);
-    // Pluto haze bands (DORMANT unless armed): gravity-wave stratified layers baked into the
-    // haze density. Armed by bandSentinel < 0 (fed the ozone Altitude - a field Pluto doesn't
-    // use, so this is DECOUPLED from the Mie asymmetry; tuning forward-scatter can't trigger
-    // it, and arming it can't disturb the phase function). Modulates the Mie (haze) density
-    // into denser shells ~12 km apart, so the forward-scattered crescent shows NH-style
-    // stacked layers. RELATIVE (x) modulation -> rides the exp falloff, so upper bands fade
-    // naturally with the haze. Because every LUT integrates this same function, the bands
+    // Pluto's haze bands, baked into the haze density: its smooth falloff cut into a ladder of bands
+    // ~11 km deep, each densest under its lid (PlutoHazeBandFactor), so the forward-scattered crescent
+    // shows New Horizons' stacked layers. A multiplier that keeps each band's column, so the haze's
+    // total is the measured one. Because every LUT integrates this same function, the bands
     // stay consistent across single + multiple scattering + transmittance.
-    // Salted (hash noise, altitude-only) three ways: jittered spacing, ~18% dropped bands,
-    // per-band density. NOTE: HORIZONTAL (azimuthal) variation is IMPOSSIBLE here - the
+    // Salted (hash noise, altitude-only) three ways: jittered depth, ~18% dropped bands,
+    // per-band strength. NOTE: HORIZONTAL (azimuthal) variation is IMPOSSIBLE here - the
     // visible atmosphere is drawn from the sky-view LUT (SkyLut.comp), parameterized only
     // by (viewZenithCosAngle, lightViewAngle) with NO azimuth axis, so it hard-assumes
     // azimuthal symmetry. Bands can only be concentric. Horizontal break-up would need an
     // engine change (per-pixel march or an azimuth LUT dim) or a 2D/volumetric cloud overlay.
-    // Bake bands into the LUT density ONLY for thin atmospheres (Pluto = Mie, its forward haze).
+    // Bake bands into the LUT density ONLY for thin atmospheres (Pluto and Triton = Mie, the forward haze).
     // For thick Titan this put bands into BOTH the sky-view and aerial LUTs, which resolve the
     // altitude structure at different resolutions -> a brightness SEAM at the sky/aerial
     // (geometry-edge) boundary. Titan's bands come from the per-pixel march instead (blended high
     // in the halo), so its LUTs stay stock and continuous across that boundary.
-    if (RaBodyHasHaze(bodyRadius) && bodyRadius < 2000000.0)
+    if (RaBodyHasHaze(bodyRadius) && bodyRadius < 2000000.0 && RaHazeBandsOn(hazeClock))
     {
         density.y *= PlutoHazeBandFactor(seaLevelAltitude, vec3(0.0), 0.0, bodyRadius);
     }
@@ -1990,12 +2246,13 @@ vec2 AtmosphereDensityFalloff(float seaLevelAltitude, float rayleighScaleHeight,
 
 """;
 
-    // 5th arg = bottomRadius (the per-body haze identifier; see RaBodyHasHaze). atmosphereData
-    // is in scope at every site.
+    // 5th arg = bottomRadius (the per-body haze identifier; see RaBodyHasHaze); 6th = the ozone extent, which for
+    // a haze body is the haze clock and carries the bands' switch (RaHazeBandsOn). atmosphereData is in scope at
+    // every site.
     public const string DensAStock = "exp(-seaLevelAltitude / vec2(atmosphereData.rayleighCoefficientsAndScaleHeight.w, atmosphereData.mieCoefficientsAndScaleHeight.w))";
-    public const string DensAPatch = "AtmosphereDensityFalloff(seaLevelAltitude, atmosphereData.rayleighCoefficientsAndScaleHeight.w, atmosphereData.mieCoefficientsAndScaleHeight.w, atmosphereData.miePhaseFunctionAsymmetry.xyz, atmosphereData.bottomRadius)";
+    public const string DensAPatch = "AtmosphereDensityFalloff(seaLevelAltitude, atmosphereData.rayleighCoefficientsAndScaleHeight.w, atmosphereData.mieCoefficientsAndScaleHeight.w, atmosphereData.miePhaseFunctionAsymmetry.xyz, atmosphereData.bottomRadius, atmosphereData.ozoneExtent)";
     public const string DensBStock = "exp(-seaLevelAltitude / vec2(rayleighScaleHeight, mieScaleHeight))";
-    public const string DensBPatch = "AtmosphereDensityFalloff(seaLevelAltitude, rayleighScaleHeight, mieScaleHeight, atmosphereData.miePhaseFunctionAsymmetry.xyz, atmosphereData.bottomRadius)";
+    public const string DensBPatch = "AtmosphereDensityFalloff(seaLevelAltitude, rayleighScaleHeight, mieScaleHeight, atmosphereData.miePhaseFunctionAsymmetry.xyz, atmosphereData.bottomRadius, atmosphereData.ozoneExtent)";
 
     // (file, stock, patch, expected-count) for the density sites
     public static readonly (string File, string Stock, string Patch, int Count)[] MarsDensitySites =
@@ -2040,6 +2297,25 @@ vec2 AtmosphereDensityFalloff(float seaLevelAltitude, float rayleighScaleHeight,
     public const string HazeBandMarchFunc =
 """
 // ---- Real Atmospheres: per-pixel horizontal haze-band march (Pluto) ----
+// WHERE THE MARCH RUNS. It is the dearest thing a haze body draws: 50 steps for every pixel of sky, each with its
+// bands to work out (user, 2026-10-08: the bands' switch "has revealed that it causes significant performance drain,
+// especially at Pluto", whose sky is half as deep again as the body is wide). So it runs where it can be seen, and
+// nowhere else. Each of these leaves the picture as it was to within a display level:
+//   raHazeBlendLeast  the march's least share of a pixel. Under it the pixel is the LUT's. Was 0.002, which marched
+//                     the whole sky for a 0.2% share whenever the camera stood just above where the bands begin.
+//   raHazeSeenFrom/By the haze's own brightness at the pixel, as the sky LUT has just given it and as it will be
+//                     drawn (x the Sun's light): the bands come in between 0.8 and 2.4 display levels (one is about
+//                     0.0005 near black at the default exposure). Dimmer than that, a band cannot show, and the LUT
+//                     stands: the dark of a night sky, the thin top of the atmosphere. Pluto's and Triton's LUT holds
+//                     their bands as shells, so those do not go smooth there, they only stop undulating.
+//   raHazeStepShare   see the loop: a step's bands only where the step gives the pixel a five-hundredth of its light.
+//   raHazeGone        the march ends once a five-hundredth of the light behind still gets through.
+const float raHazeBlendLeast = 0.02;
+const float raHazeSeenFrom = 0.0004;
+const float raHazeSeenBy = 0.0012;
+const float raHazeStepShare = 0.002;
+const float raHazeGone = 0.002;
+
 vec3 raRotateAxis(vec3 v, vec3 axis, float a)   // Rodrigues; axis must be normalized
 {
     float c = cos(a), s = sin(a);
@@ -2050,8 +2326,10 @@ vec3 raRotateAxis(vec3 v, vec3 axis, float a)   // Rodrigues; axis must be norma
 // the removed atmospherePushConsts to the atmosphereDataUbo. lutLayer is threaded in.
 void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float distanceToTravel,
     vec3 planetPosition, vec3 sunPosition, float planetRadius, AtmosphereData atmosphereData,
-    float lutLayer, int iterations, out vec3 inscatter, out vec3 transmittance)
+    float lutLayer, int iterations, float pixelLight, out vec3 inscatter, out vec3 transmittance)
 {
+    // pixelLight: the brightest channel of this pixel's haze as the sky LUT has it, per unit of sunlight. It is the
+    // measure a step is held against below.
     vec3 currentPosition = worldViewDir * startDistance;
     float stepSize = distanceToTravel / iterations;
     vec2 transmittanceLutDimensions = textureSize(transmittanceLut, 0).xy;
@@ -2059,17 +2337,31 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
     // ANIMATION: hardcoded rates (time is sim-time, so both auto-speed-up under time-warp).
     // DEV live-tuning: temporarily multiply animSpeed by atmosphereData.ozoneExtent and set the
     // Ozone Extent slider in the debug editor (works only while the ozone slot is otherwise unused).
-    // Spin axis per body (VERIFY frames in-game). Titan: ~upright (tidally locked to Saturn,
-    // low obliquity). Pluto: ecliptic estimate of its steep IAU pole.
-    vec3 spinAxis = atmosphereData.bottomRadius > 2000000.0
-        ? normalize(vec3(0.0, 1.0, 0.05))
-        : normalize(vec3(-0.68, 0.62, -0.39));
+    // THE HAZE'S TURNING. The pattern turns about the body's own pole, the way the ground does, at the
+    // ground's rate plus the wind that carries the real haze. The mod sends both for the haze bodies each
+    // frame, from the game's own rotation of the body (Patches.WriteHazeTurn): the rotation axis in the ring
+    // normal, the haze's angle about it (right-handed, -pi to pi) in the ring inner radius, and an outer
+    // radius of -1 to say so. These are slots a ring-less body leaves unused, and every stock use of them is
+    // behind useRingShadows.
+    // The axes used to be written here per body, and Titan's lay in the plane of its equator: its haze went
+    // over the poles instead of round the planet (user, 2026-10-06). And the lookup turned the same way as
+    // the angle, so the pattern turned against the ground.
+    // Without the mod's hook: the real spin axes in the ecliptic frame the shaders work in (Titan's and
+    // Pluto's poles, Triton's reversed, since it turns backwards), at one rate for all.
+    bool raTurnSent = atmosphereDataUbo.useRingShadows == 0 && atmosphereDataUbo.ringOuterRadius < -0.5;
+    vec3 spinAxis = raTurnSent
+        ? atmosphereDataUbo.ringNormalAndInnerRadius.xyz
+        : atmosphereData.bottomRadius > 2000000.0
+            ? normalize(vec3(0.09, 0.46, 0.88))
+            : RaHazeBodyIsTriton(atmosphereData.bottomRadius)
+                ? normalize(vec3(-0.45, 0.61, -0.65))
+                : normalize(vec3(-0.68, 0.62, -0.39));
     // SIM-LINKED time: the mod injects elapsed SIM seconds into ozoneExtent for the haze bodies
     // (freezes on pause, scales with time-warp). Falls back to wall-clock if not injected.
     float animT = atmosphereData.ozoneExtent > 0.5 ? atmosphereData.ozoneExtent : global.camera.time;
-    // Realistic high-altitude rotation: Pluto spins once per 6.39 d (omega ~1.14e-5 rad/s);
-    // 1.3e-5 is ~1.14x (near co-rotation, a hair of super-rotation). Sim-linked (this is the 1x rate).
-    float rotAngle = mod(animT * 1.3e-5, 6.28318530718);
+    // A point of the pattern turns by +angle about the axis, so the direction it is looked up at turns by
+    // -angle. The fallback rate: Pluto spins once per 6.39 d (omega ~1.14e-5 rad/s); 1.3e-5 is ~1.14x.
+    float rotAngle = raTurnSent ? -atmosphereDataUbo.ringNormalAndInnerRadius.w : -mod(animT * 1.3e-5, 6.28318530718);
     float evolveT  = animT * 3.0e-5;                           // cloud evolution ~2.3x rotation (haze morphs over hours, not seconds)
 
     vec3 totalTransmittance = vec3(1.0);
@@ -2082,6 +2374,12 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
     float raRH = atmosphereData.rayleighCoefficientsAndScaleHeight.w;
     float raMH = atmosphereData.mieCoefficientsAndScaleHeight.w;
 
+    float dotViewDirSunDir = dot(worldViewDir, normalize(sunPosition));
+    vec3 miePhase = MiePhaseFunction(dotViewDirSunDir, atmosphereData.miePhaseFunctionAsymmetry.xyz);
+    float rayleighPhase = RayleighPhaseFunction(dotViewDirSunDir);
+    bool raTitan = atmosphereData.bottomRadius > 2000000.0;     // Titan's bands are in its Rayleigh haze, the others' in their Mie
+    float raLeast = raHazeStepShare * pixelLight;
+
     for (int i = 0; i < iterations; i++)
     {
         currentPosition += stepSize * worldViewDir;
@@ -2091,39 +2389,52 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
 
         float seaLevelAltitude = max(distanceFromPlanetCenter - atmosphereData.bottomRadius, 0.0);
         vec2 densityFalloff = RaBaseDensity(seaLevelAltitude, raRH, raMH, atmosphereData.miePhaseFunctionAsymmetry.xyz, atmosphereData.bottomRadius);
-        vec3 hazeDir = raRotateAxis(zenithDirection, spinAxis, rotAngle);           // rotate the haze field over time
-        float band = PlutoHazeBandFactor(seaLevelAltitude, hazeDir, evolveT, atmosphereData.bottomRadius); // vertical + horizontal + time
-        if (atmosphereData.bottomRadius > 2000000.0)
-            densityFalloff.x *= band;   // Titan etc.: Rayleigh is the bright bulk haze
-        else
-            densityFalloff.y *= band;   // Pluto: Mie is the forward haze
-        float ozoneDensity = saturate(1.0 - abs(seaLevelAltitude - atmosphereData.ozoneCoefficientsAndAltitude.w) / atmosphereData.ozoneExtent);
         vec3 rayleigh = RaRayleighCoefficients(seaLevelAltitude, atmosphereData.rayleighCoefficientsAndScaleHeight, atmosphereData.bottomRadius);
-        vec3 localAbsorption = rayleigh * densityFalloff.x + mieAbsorption * densityFalloff.y + atmosphereData.ozoneCoefficientsAndAltitude.xyz * ozoneDensity;
-        vec3 stepTransmittance = exp(-localAbsorption * stepSize);
 
         float sunCosZenith = dot(zenithDirection, directionToSun);
         vec3 lightReceived = GetTransmittanceFromLut(planetRadius, atmosphereData.bottomRadius, atmosphereData.topRadius,
                                 distanceFromPlanetCenter, sunCosZenith, transmittanceLut, lutLayer, transmittanceLutDimensions);
+        vec2 msCoords = GetMultiScatteringLutCoordsFromPhysicalParameters(sunCosZenith,
+                                seaLevelAltitude, atmosphereData.bottomRadius, atmosphereData.topRadius);
+        vec3 multipleScatteringLight = textureLod(multipleScatteringLut, vec3(msCoords, lutLayer), 0.0).rgb;
+
+        // THE BANDS, WHERE THEY CAN SHOW. Working out a step's bands is the dear part (nine noise lookups and ten
+        // powers), and most steps of a ray cannot show them: they lie far from where the ray passes lowest, in
+        // haze a hundredth as thick, or in the dark, or behind haze nothing gets through. So first the most the
+        // step's banded haze can give the pixel (as if it lost nothing within the step), and its bands only if
+        // that is more than raHazeStepShare of the pixel's light. Left out, the step is the smooth haze, which is
+        // what its bands average to.
+        vec3 raStepGives = totalTransmittance * stepSize
+            * (raTitan ? densityFalloff.x * rayleigh * (lightReceived * rayleighPhase + multipleScatteringLight)
+                       : densityFalloff.y * atmosphereData.mieCoefficientsAndScaleHeight.xyz * (lightReceived * miePhase + multipleScatteringLight));
+        if (max(raStepGives.r, max(raStepGives.g, raStepGives.b)) > raLeast)
+        {
+            vec3 hazeDir = raRotateAxis(zenithDirection, spinAxis, rotAngle);           // rotate the haze field over time
+            float band = PlutoHazeBandFactor(seaLevelAltitude, hazeDir, evolveT, atmosphereData.bottomRadius); // vertical + horizontal + time
+            if (raTitan)
+                densityFalloff.x *= band;   // Titan etc.: Rayleigh is the bright bulk haze
+            else
+                densityFalloff.y *= band;   // Pluto, Triton: Mie is the forward haze
+        }
+        float ozoneDensity = saturate(1.0 - abs(seaLevelAltitude - atmosphereData.ozoneCoefficientsAndAltitude.w) / atmosphereData.ozoneExtent);
+        vec3 localAbsorption = rayleigh * densityFalloff.x + mieAbsorption * densityFalloff.y + atmosphereData.ozoneCoefficientsAndAltitude.xyz * ozoneDensity;
+        vec3 stepTransmittance = exp(-localAbsorption * stepSize);
 
         vec3 integrationWeight = totalTransmittance * (vec3(1.0) - stepTransmittance) / localAbsorption;
         vec3 currentRayleighInscatter = densityFalloff.x * rayleigh;
         vec3 currentMieInscatter      = densityFalloff.y * atmosphereData.mieCoefficientsAndScaleHeight.xyz;
 
-        vec2 msCoords = GetMultiScatteringLutCoordsFromPhysicalParameters(sunCosZenith,
-                                seaLevelAltitude, atmosphereData.bottomRadius, atmosphereData.topRadius);
-        vec3 multipleScatteringLight = textureLod(multipleScatteringLut, vec3(msCoords, lutLayer), 0.0).rgb;
         inscatter += integrationWeight * multipleScatteringLight * (currentRayleighInscatter + currentMieInscatter);
 
         integrationWeight *= lightReceived;
         rayleighInscatter += integrationWeight * currentRayleighInscatter;
         mieInscatter      += integrationWeight * currentMieInscatter;
         totalTransmittance *= stepTransmittance;
+        // nothing behind this gets through (Titan's haze along a low ray): the rest of the ray adds nothing
+        if (max(totalTransmittance.r, max(totalTransmittance.g, totalTransmittance.b)) < raHazeGone)
+            break;
     }
 
-    float dotViewDirSunDir = dot(worldViewDir, normalize(sunPosition));
-    vec3 miePhase = MiePhaseFunction(dotViewDirSunDir, atmosphereData.miePhaseFunctionAsymmetry.xyz);
-    float rayleighPhase = RayleighPhaseFunction(dotViewDirSunDir);
     inscatter += rayleighInscatter * rayleighPhase + mieInscatter * miePhase;
     transmittance = totalTransmittance;
 }
@@ -2152,7 +2463,7 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
     {
         GetSkyColorFromLuts(worldViewDir, planetPosition, global.lighting.sunPosition.xyz, atmosphereData.bottomRadius,
             atmosphereData.topRadius, skyColorRGBTransmittanceRLut, skyColorTransmittanceGBLut, inscatter, transmittance);
-        if (RaBodyHasHaze(atmosphereData.bottomRadius))
+        if (RaBodyHasHaze(atmosphereData.bottomRadius) && RaHazeBandsOn(atmosphereData.ozoneExtent))
         {
             // Base above = the sky LUT, which is continuous with the aerial LUT at the disk edge
             // (so no seam there). Blend in the per-pixel banded march ONLY for rays grazing high in
@@ -2160,11 +2471,21 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
             // the LUT, hiding the march-vs-LUT brightness step that was seaming at the geometry edge.
             float rayT = max(dot(planetPosition, worldViewDir), 0.0);
             float tangentAlt = length(planetPosition - worldViewDir * rayT) - atmosphereData.bottomRadius;
-            float bandStart = atmosphereData.bottomRadius > 2000000.0 ? 30000.0 : 3000.0;  // Titan high, Pluto low
-            float bandRange = atmosphereData.bottomRadius > 2000000.0 ? 110000.0 : 25000.0; // WIDE on Titan: spreads any
+            // Triton's haze is a fraction as deep as Pluto's (11 km scale height, seen to 30 km): by 28 km there is
+            // 8% of it left, so the march comes in over its first band instead, from just above its terrain (which
+            // tops out 2 km over the sky's bottom).
+            bool raTriton = RaHazeBodyIsTriton(atmosphereData.bottomRadius);
+            float bandStart = atmosphereData.bottomRadius > 2000000.0 ? 30000.0 : raTriton ? 2500.0 : 3000.0;  // Titan high, Pluto low
+            float bandRange = atmosphereData.bottomRadius > 2000000.0 ? 110000.0 : raTriton ? 8000.0 : 25000.0; // WIDE on Titan: spreads any
                                                                                             // base march-vs-LUT difference out so it can't read as a line
             float wMarch = smoothstep(bandStart, bandStart + bandRange, tangentAlt);
-            if (wMarch > 0.002)
+            // only where it can be seen (see raHazeBlendLeast above): not for a sliver of a share, and not where
+            // the haze the LUT has just given is too dim for a band to show in it
+            wMarch = max(wMarch - raHazeBlendLeast, 0.0) / (1.0 - raHazeBlendLeast);
+            float raPixelLight = max(inscatter.r, max(inscatter.g, inscatter.b));
+            float raSunLight = max(global.lighting.sunColor.r, max(global.lighting.sunColor.g, global.lighting.sunColor.b));
+            wMarch *= smoothstep(raHazeSeenFrom, raHazeSeenBy, raPixelLight * raSunLight);
+            if (wMarch > 0.0)
             {
                 float raBandDist = inAtmosphereDistance;
                 if (planetIntersections.x >= 0.0)
@@ -2172,7 +2493,7 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
                 vec3 raMInscatter, raMTransmittance;
                 RaymarchAtmosphereHorizontal(worldViewDir, startDistance, raBandDist, planetPosition,
                     global.lighting.sunPosition.xyz, atmosphereDataUbo.planetRadius, atmosphereData,
-                    float(atmosphereDataUbo.atmosphereLutLayer), LUT_RAYMARCHING_ITERATIONS, raMInscatter, raMTransmittance);
+                    float(atmosphereDataUbo.atmosphereLutLayer), LUT_RAYMARCHING_ITERATIONS, raPixelLight, raMInscatter, raMTransmittance);
                 inscatter = mix(inscatter, raMInscatter, wMarch);
                 // keep the LUT transmittance (don't mix) - avoids a transmittance step at the blend edge
             }
@@ -2191,11 +2512,22 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
     public static readonly string TerminatorFade = TerminatorAnchor + "\n" +
 """
 
-        // PATCHED (2D cloud terminator fade): decouple the day/night rolloff from the
-        // Lambertian blend. The transmittance LUT's planet-shadow cutoff is a knife
-        // edge, so an unshaded (Lambertian~0) layer snaps to black at the terminator;
-        // fade smoothly across ~11 deg of solar zenith instead.
-        color.rgb *= smoothstep(-0.12, 0.08, dot(normalize(cloudPosition - planetPosition), lightDirection));
+        // PATCHED (2D cloud terminator fade): the day/night rolloff, apart from the Lambertian blend. The
+        // transmittance LUT's planet shadow is a knife edge at the layer's top. A layer shaded like a surface
+        // (Lambertian 0.5 and up) fades across ~11 deg of solar zenith around the terminator, standing in for
+        // the self-shadowing its volumetric clouds have. A thin, unshaded layer (Lambertian toward 0) has none:
+        // its volumetric clouds stay lit until the planet's shadow climbs to their height, base first and top
+        // last, so the 2D layer fades over that sweep instead (Mars's cirrus at 22-29 km: 5 to 7.5 deg past the
+        // terminator), a little early so the knife edge never shows.
+        {
+            float raSunCos = dot(normalize(cloudPosition - planetPosition), lightDirection);
+            float raTop = min(atmosphereDataUbo.planetRadius / uboCloudLayer.topRadius, 1.0);
+            float raBase = min(atmosphereDataUbo.planetRadius / uboCloudLayer.bottomRadius, 1.0);
+            float raShadowAtTop = -sqrt(1.0 - raTop * raTop);      // the Sun's zenith cosine as the shadow reaches it
+            float raShadowAtBase = -sqrt(1.0 - raBase * raBase);
+            float raShaded = smoothstep(0.0, 0.5, uboCloudLayer.twoDimensionalCloudLambertian);
+            color.rgb *= smoothstep(mix(raShadowAtTop, -0.12, raShaded), mix(raShadowAtBase + 0.02, 0.08, raShaded), raSunCos);
+        }
 """.TrimEnd('\n');
 
     // ---------------- 2DCloud.comp: skylight by the map's colour ----------------
@@ -2221,6 +2553,560 @@ void RaymarchAtmosphereHorizontal(vec3 worldViewDir, float startDistance, float 
 
     public const string SkylightAddPatched =
         "        color.rgb += raMapColour * skyAmbientInscatter * TWO_DIMENSIONAL_CLOUD_BRIGHTNESS * 10.0;";
+
+    // ---------------- 2DCloud.comp: Triton's 2D clouds may be as bright as its ice ----------------
+    // A 2D cloud layer's sunlit colour is its texture x its Color x 0.12 x the Sun's 9: at most 1.08, where a white
+    // surface facing the Sun shows 9 / pi = 2.86. So the brightest a 2D cloud can be set is a reflectance of 0.38
+    // (the Color is stored in 8 bits a channel and stops at 1). Over Earth's sea or Mars's ground that reads as
+    // white. Triton's ice reflects about 0.7, so its 2D clouds, a pure white texture at up to 6% opacity, could only
+    // darken the ground under them, whatever the Color (user, 2026-10-05: "a base gray colour that I can't lighten
+    // up any further in the debug editor. The volumetrics are nearly white, but the 2D clouds look darker"). On
+    // Triton's layer (told by its radii: 1,353.4 + 4 km and + 6.5 km) the colour is multiplied by 1 / (0.12 pi) =
+    // 2.65, which makes a Color of 1 a white surface, as bright as the brightest ice; the layer's own Color
+    // (0.85, 0.88, 0.92) then stands a little above Triton's ground, and the editor's Color has its range back.
+    //
+    // Its opacity is the volumetric layer's as well. A 2D layer is as opaque as its texture says from every angle;
+    // Triton's showed its wisps at up to 6%. The volumetric wisps are 5e-6 per metre in a layer 2.5 km deep: seen
+    // straight down at most 0.3% (through the engine's coverage and erosion a full wisp holds 0.32 of density x
+    // depth), growing with the length of the line of sight through the layer, to 66 times that where it grazes the
+    // layer's floor. Edge on the two looked alike; looking down, a cloud vanished as the volumetric layer took over
+    // (user, 2026-10-06: "when you descend towards one and see the transition, it disappears. The look of the 3D
+    // clouds from the surface looking up is about right though"). So on Triton's layer the 2D opacity is
+    // 1 - exp(-density x share x path): the type's density as loaded; the share of density x depth the volumetric
+    // chain builds for the cloud map's value there (the volumetric layer's own map, every 0.05 of its value up to
+    // 0.4, where coverage is full: scratchpad giants/triton_layers.py); and the path through the layer's shell
+    // along the line of sight. Straight down a full wisp is 0.3% opaque, 80 degrees off 2%, at the limb 10-20%.
+    // The 2D texture's own alpha (0.163 x the volumetric map) is no longer used there.
+    public const string CloudGainMarker = "a 2D cloud layer over bright ice";
+
+    public const string CloudGainAnchor =
+        "    color.rgb *= unpackRGBA(uboCloudLayer.twoDimensionalCloudColor).rgb;\n";
+
+    public const string CloudGainPatched = CloudGainAnchor +
+        "\n" +
+        "    // PATCHED (Real Atmospheres: a 2D cloud layer over bright ice may be as bright as the ice, and is as thin as its volumetric clouds; Triton's layer)\n" +
+        "    if (abs(uboCloudLayer.bottomRadius - 1357400.0) < 50.0 && abs(uboCloudLayer.topRadius - 1359900.0) < 50.0)\n" +
+        "    {\n" +
+        "        color.rgb *= 2.65;\n" +
+        "\n" +
+        "        // opacity: the column the volumetric layer builds for its map's value here (as a share of its type's density x the\n" +
+        "        // layer's depth, every 0.05 of map value), along the line of sight through the layer's shell\n" +
+        "        const float raColumnShare[9] = float[9](0.0, 0.0019, 0.0135, 0.0381, 0.0768, 0.1307, 0.1966, 0.2606, 0.3170);\n" +
+        "        vec4 raMapSample = textureGrad(sampler2D(globalTextures[uboCloudLayer.cloudColorTextureId],\n" +
+        "            samplers[uboCloudLayer.linearRepeatSamplerId]), sphericalUV, dx, dy);\n" +
+        "        float raMap = uboCloudLayer.volumetricTextureSingleChannel > 0 ? raMapSample.r : raMapSample.a;\n" +
+        "        float raAt = clamp(raMap / 0.05, 0.0, 8.0);\n" +
+        "        int raBelow = min(int(raAt), 7);\n" +
+        "        float raShare = mix(raColumnShare[raBelow], raColumnShare[raBelow + 1], raAt - float(raBelow));\n" +
+        "        float raCos = abs(dot(worldViewDir, normalize(cloudPosition - planetPosition)));\n" +
+        "        float raInside = uboCloudLayer.bottomRadius * uboCloudLayer.bottomRadius\n" +
+        "            - uboCloudLayer.topRadius * uboCloudLayer.topRadius * (1.0 - raCos * raCos);\n" +
+        "        float raPath = uboCloudLayer.topRadius * raCos - (raInside > 0.0 ? sqrt(raInside) : -uboCloudLayer.topRadius * raCos);\n" +
+        "        color.a = 1.0 - exp(-uboCloudLayer.cloudTypesData[0].x * raShare * raPath);\n" +
+        "    }\n";
+
+    // ---------------- 2DCloud.comp: Venus's cloud shell is never see-through ----------------
+    // A 2D cloud layer is as see-through as its map says. Venus's map (stock VenusCloud) is white with an alpha of
+    // 0.35 to 0.80 (median 0.65), so from orbit a third of every pixel was the gas below the clouds, and up to two
+    // thirds in the map's markings. Under the stock planet's yellow gas that drew the markings a little darker and
+    // yellower than the cloud. Under the measured carbon dioxide it drew them blue: the gas beneath is blown out to
+    // white at the disc's centre and turns blue toward the limb (blue 1.3 to 1.6 times red there), while the cloud
+    // itself stays cream all the way out (scratchpad venus/shell_tint.py, a port of the game's atmosphere with the 2D
+    // shell composed as the shader does). User, 2026-10-08: "Venus' dark cloud patches have a blue-ish look and the
+    // limb darkening has the same blue-ish tint, compared to the off-yellow gray look from the photos. I feel like
+    // that is a gas layer rather than to do with the cloud map itself."
+    //
+    // Venus's clouds are 25 to 35 optical depths deep everywhere: nothing below them is ever seen from space, and
+    // the dark markings are an absorber in the upper cloud, not gaps. So on Venus's layer (told by its radii, as the
+    // deck lighting tells it) the shell is opaque, and the map shades the cloud instead: where the map is thin the
+    // cloud's light falls to RaVenusUnder of itself, the share the stock planet showed there (its gas's light over
+    // its cloud's at the disc's centre: 0.392 / 0.490, 0.347 / 0.423, 0.193 / 0.293; scratchpad venus/stock_tint.py).
+    // The markings keep the strength the stock planet gave them (the darkest 9% under the brightest in red and green,
+    // 17% in blue) and are the cloud's own colour gone darker and yellower, from the centre to the limb. The skylight
+    // on the cloud is shaded with it. Below the 2D switch nothing changes: the volumetric deck was solid already.
+    public const string VenusShellMarker = "Venus's cloud shell is never see-through";
+    public const string VenusUnder = "0.80, 0.82, 0.66";
+
+    public const string VenusShellAnchor =
+        "    vec3 lightDirection = normalize(global.lighting.sunPosition.xyz - planetPosition);\n";
+
+    /// <summary>The block put before <see cref="VenusShellAnchor"/>; <paramref name="skylight"/> when the skylight
+    /// patch is in (its raMapColour then exists to be shaded too).</summary>
+    public static string VenusShellPatched(bool skylight) =>
+        "    // PATCHED (Real Atmospheres: " + VenusShellMarker + "; its map's markings shade the cloud)\n" +
+        "    if (abs(uboCloudLayer.bottomRadius - 6099800.0) < 50.0 && abs(uboCloudLayer.topRadius - 6123800.0) < 50.0)\n" +
+        "    {\n" +
+        "        // what the stock planet showed through its map, as a share of its own cloud's light\n" +
+        "        const vec3 raVenusUnder = vec3(" + VenusUnder + ");\n" +
+        "        vec3 raShade = mix(raVenusUnder, vec3(1.0), clamp(color.a, 0.0, 1.0));\n" +
+        "        color.rgb *= raShade;\n" +
+        (skylight ? "        raMapColour *= raShade;\n" : "") +
+        "        color.a = 1.0;\n" +
+        "    }\n" +
+        "\n" + VenusShellAnchor;
+
+    // ---------------- CloudShadows.glsl: Triton's thin clouds shadow the ground no more than their column can ----------------
+    // The clouds' shadow on the ground has two forms. Below a body's 2D switch it is the layer's own column: the
+    // optical depth for the cloud type and coverage there, from a table the game integrates per layer. From above
+    // the switch it is simply 1 - the cloud map's coverage, as if the cloud were opaque wherever its map is full.
+    // For a dense layer the two agree. Triton's nitrogen-ice wisps are 5e-6 per metre over 2.5 km, an optical depth
+    // of about 0.01: no shadow from below 800 km, and from above it the ground under every wisp went dark by the
+    // map's value, up to black, fading out through the switch (user, 2026-10-06: "The 2D layer casts visible
+    // shadows onto the surface but the volumetric layer doesn't ... you see the shadows disappear in front of your
+    // eyes. I feel like these clouds, which are thin nitrogen crystal clouds, shouldn't cast much of a shadow").
+    // On Triton's layer (told by the shadow data's radii: bottom 1,353.4 + 4 km, middle + 5.25 km) the shadow from
+    // above is now no deeper than the layer's densest column allows, read from the same table at full coverage:
+    // about 1%, as from below. (Mars's dust has the same two forms, 40-80% against about 34%; left as it is.)
+    public const string ThinShadowMarker = "a thin cloud layer's shadow from above the 2D switch";
+
+    public const string ThinShadowAnchor = "            float transmittance = 1.0 - globalCoverage;\n";
+
+    public const string ThinShadowPatched = ThinShadowAnchor +
+        "\n" +
+        "            // PATCHED (Real Atmospheres: a thin cloud layer's shadow from above the 2D switch; Triton's layer)\n" +
+        "            // no deeper than the layer's densest column allows, as its shadow from below the switch is\n" +
+        "            if (abs(staticLayerData.bottomRadius - 1357400.0) < 50.0 && abs(staticLayerData.middleRadius - 1358650.0) < 50.0)\n" +
+        "            {\n" +
+        "                transmittance = max(transmittance, BeerAbsorption(textureLod(sampler2D(globalTextures[staticLayerData.shadowDensityLutTextureId],\n" +
+        "                    samplers[staticLayerData.linearClampSamplerId]), vec2(0.5, 1.0), 0.0f).r));\n" +
+        "            }\n";
+
+    // ---------------- Planet.frag + GroundClutter/Solid.frag: the planet's own shadow on its terrain ----------------
+    // The game draws a body's shadow on its own ground as a smooth ball's. Sunlight's transmittance stops at the mean
+    // sphere's horizon within a fixed 0.57 deg (ApplyPlanetSoftShadow), and the body eclipses itself as a ball of
+    // 0.999 R over the Sun's own size (applyCelestialShadow), which from Pluto is 0.007 deg. Ground facing the Sun is
+    // still well lit at that horizon, so where little air dims the setting Sun first (90% of its light is left at
+    // Pluto's horizon, 1% at Earth's) the terminator went from lit to black along one line, with only the peaks lit
+    // past it. Over real ground the Sun stays in sight past the ball's horizon wherever the terrain toward it lies
+    // lower, down to the deepest of the body's relief, which drops the horizon by up to sqrt(2 relief / R). So the
+    // body's own shadow on its terrain and its rocks now starts at the ball's horizon, seen from each point's own
+    // height (peaks still keep the Sun longest), and closes over that band: Pluto 5.1 deg, Triton 1.9, the Moon and
+    // Mars 5.7 (the most it goes), Earth 3. The relief is the height map's maximum as the game loaded it, taken as
+    // deep as it is high. Sunward of the horizon no light is taken away. The sky's light, which the game also cuts
+    // with the body's eclipse of itself, keeps the game's cut-off point and closes over the same band. Each shader
+    // is patched whole or not at all; where the body cannot be found the game's own shadow stands.
+
+    public const string TerrainShadowMarker = "RaOwnShadow(";
+
+    // inserted after each shader's CelestialShadows include; both have AtmosphereLuts (through Lighting.glsl) by then
+    public static readonly string TerrainShadowFuncs =
+"""
+
+// ---- Real Atmospheres: the planet's own shadow on its terrain, softened by its relief ----
+// The game draws a body's shadow on its own ground as a smooth ball's: sunlight stops at the mean sphere's
+// horizon within 0.57 deg (ApplyPlanetSoftShadow), and the body eclipses itself as a 0.999 R ball over the Sun's
+// own size (applyCelestialShadow), so ground facing the Sun went from lit to black along one line wherever little
+// air had dimmed the setting Sun first. Over real ground the Sun stays in sight past that horizon wherever the
+// terrain toward it lies lower, down to the deepest of the body's relief: the shadow starts at the ball's horizon,
+// as seen from each point's own height, and closes over the band that relief spreads it across.
+
+bool RaOwnShadowKnown(int celestialIndex)
+{
+    return celestialIndex >= 0 && celestialIndex < global.celestial.bodyCount;
+}
+
+// The body's own shadow at a point: 1 sunward of the horizon of a ball of `limb` times its mean radius seen from
+// the point's height, 0 a band below it. The band is sqrt(2 relief / R), the horizon's drop over terrain as deep as
+// the height map's maximum (`relief`, metres), held between the game's 0.01 rad and 0.1 rad, and never narrower
+// than the Sun's own diameter.
+float RaOwnShadow(vec3 worldPosition, vec4 sunPosition, int celestialIndex, float relief, float limb)
+{
+    if (!RaOwnShadowKnown(celestialIndex))
+        return 1.0;
+    vec3 centre = global.celestial.bodies[celestialIndex].xyz;
+    float radius = global.celestial.bodies[celestialIndex].w;
+    vec3 up = worldPosition - centre;
+    float r = length(up);
+    vec3 toSun = sunPosition.xyz - worldPosition;
+    float sunDistance = length(toSun);
+    float sunElevation = asin(clamp(dot(up, toSun) / (r * sunDistance), -1.0, 1.0));
+    float horizonDip = acos(clamp(limb * radius / r, 0.0, 1.0));
+    float sunDiameter = 2.0 * asin(clamp(sunPosition.w / sunDistance, 0.0, 1.0));
+    float band = max(clamp(sqrt(2.0 * max(relief, 0.0) / radius), 0.01, 0.1), sunDiameter);
+    return smoothstep(-band, 0.0, sunElevation + horizonDip);
+}
+
+// getSelfCelestialShadow without the body's eclipse of itself, which RaOwnShadow stands in for: the game's ramp on
+// the ball's normal, and every other body's eclipse. As the game has it when the body cannot be found.
+float RaOtherShadows(vec3 worldPosition, vec4 sunPosition, vec3 inNormal, int myCelestialIndex)
+{
+    if (!RaOwnShadowKnown(myCelestialIndex))
+        return getSelfCelestialShadow(worldPosition, sunPosition, inNormal, myCelestialIndex);
+    float shadowFactor = 1.0;
+    vec3 bodyPos = global.celestial.bodies[myCelestialIndex].xyz;
+    vec3 fragToBody = bodyPos - worldPosition;
+    vec3 bodyToSunVec = sunPosition.xyz - bodyPos;
+    if (dot(fragToBody, fragToBody) < dot(bodyToSunVec, bodyToSunVec))
+        shadowFactor *= smoothstep(0.0, 0.2, dot(inNormal, normalize(bodyToSunVec)) + 0.2);
+    for (int i = 0; i < global.celestial.bodyCount; i++)
+    {
+        if (i == myCelestialIndex)
+            continue;
+        shadowFactor *= applyCelestialShadow(worldPosition, sunPosition, i);
+        if (shadowFactor <= EPSILON)
+            break;
+    }
+    return shadowFactor;
+}
+
+// Sunlight's transmittance without the LUT's planet soft shadow, which RaOwnShadow stands in for (the LUT holds its
+// horizon value below the horizon). As the game has it when the body cannot be found.
+vec3 RaTransmittanceToSun(float bottomRadius, float topRadius, float distanceFromCenter, float cosZenith,
+                          texture2DArray lut, sampler lutSampler, float lutLayer, int celestialIndex)
+{
+    vec2 lutDimensions = vec2(textureSize(sampler2DArray(lut, lutSampler), 0).xy);
+    vec2 uv = GetTransmittanceLutUV(bottomRadius, topRadius, distanceFromCenter, cosZenith, lutDimensions);
+    vec3 transmittance = textureLod(sampler2DArray(lut, lutSampler), vec3(uv, lutLayer), 0.0).rgb;
+    return RaOwnShadowKnown(celestialIndex)
+        ? transmittance
+        : ApplyPlanetSoftShadow(transmittance, bottomRadius, distanceFromCenter, cosZenith);
+}
+""";
+
+    private const string PlanetFrag = "Planet/Planet.frag", ClutterFrag = "Planet/GroundClutter/Solid.frag";
+
+    public static readonly (string File, string Stock, string Patch)[] TerrainShadowSites =
+    {
+        (PlanetFrag, "#include \"../Common/CelestialShadows.glsl\"\n",
+         "#include \"../Common/CelestialShadows.glsl\"\n" + TerrainShadowFuncs + "\n"),
+        (PlanetFrag,
+         "    float selfShadowFactor = getSelfCelestialShadow(inWorldPosition.xyz, sunPosition, sphereWorldNormal, uboPlanet.celestialIndex);\n",
+         "    // PATCHED (Real Atmospheres: the planet's own shadow, softened by its relief): in place of the body's eclipse of\n" +
+         "    // itself and the LUT's planet soft shadow; the sky's light keeps the game's cut-off point, closed over the same band\n" +
+         "    float raOtherShadows = RaOtherShadows(inWorldPosition.xyz, sunPosition, sphereWorldNormal, uboPlanet.celestialIndex);\n" +
+         "    float selfShadowFactor = raOtherShadows * RaOwnShadow(inWorldPosition.xyz, sunPosition, uboPlanet.celestialIndex, uboPlanet.heightScale, 1.0);\n" +
+         "    float raSkyShadowFactor = raOtherShadows * RaOwnShadow(inWorldPosition.xyz, sunPosition, uboPlanet.celestialIndex, uboPlanet.heightScale, 0.999);\n"),
+        (PlanetFrag,
+         "        vec3 transmittanceToSun = GetTransmittanceFromLut(planetRadius, planetRadius, atmosphereRadius, distanceFromPlanetCenter,\n" +
+         "        dot(zenithDirection, directionToSun), TRANSMITTANCE_LUT_TEXTURE, GLOBAL_CLAMP_SAMPLER, float(global.lighting.atmosphereLutLayer));\n",
+         "        vec3 transmittanceToSun = RaTransmittanceToSun(planetRadius, atmosphereRadius, distanceFromPlanetCenter,\n" +
+         "        dot(zenithDirection, directionToSun), TRANSMITTANCE_LUT_TEXTURE, GLOBAL_CLAMP_SAMPLER, float(global.lighting.atmosphereLutLayer), uboPlanet.celestialIndex);\n"),
+        (PlanetFrag, "        vec3 prefilteredAmbient = selfShadowFactor * GetAmbient(", "        vec3 prefilteredAmbient = raSkyShadowFactor * GetAmbient("),
+        (ClutterFrag, "#include \"../../Common/CelestialShadows.glsl\"\n",
+         "#include \"../../Common/CelestialShadows.glsl\"\n" + TerrainShadowFuncs + "\n"),
+        // the body's own shadow on the rocks whether or not their variant takes shadows, as the LUT's soft shadow was
+        (ClutterFrag, "    lightColor *= global.camera.pbrExposure;\n",
+         "    lightColor *= global.camera.pbrExposure;\n" +
+         "    // PATCHED (Real Atmospheres: the planet's own shadow, softened by its relief), with or without the shadow terms\n" +
+         "    lightColor *= RaOwnShadow(inWorldPosition.xyz, sunPosition, pushConsts.celestialIndex, uboPlanet.heightScale, 1.0);\n"),
+        // the stock asks for body 1 here; the rocks' own body is the one planetPos() reads
+        (ClutterFrag,
+         "        float shadowFactor = getSelfCelestialShadow(inWorldPosition.xyz, sunPosition, normalize(inWorldPosition.xyz - planetPos()), 1);\n",
+         "        float shadowFactor = RaOtherShadows(inWorldPosition.xyz, sunPosition, normalize(inWorldPosition.xyz - planetPos()), pushConsts.celestialIndex);\n"),
+        (ClutterFrag,
+         "        vec3 transmittanceToSun = GetTransmittanceFromLut(planetRadius, planetRadius, atmosphereRadius, distanceFromPlanetCenter,\n" +
+         "            dot(zenithDirection, directionToSun), TRANSMITTANCE_LUT_TEXTURE, GLOBAL_CLAMP_SAMPLER, float(global.lighting.atmosphereLutLayer));\n",
+         "        vec3 transmittanceToSun = RaTransmittanceToSun(planetRadius, atmosphereRadius, distanceFromPlanetCenter,\n" +
+         "            dot(zenithDirection, directionToSun), TRANSMITTANCE_LUT_TEXTURE, GLOBAL_CLAMP_SAMPLER, float(global.lighting.atmosphereLutLayer), pushConsts.celestialIndex);\n"),
+    };
+
+    // ---------------- CloudFunctions.glsl: faint clouds kept in the volumetrics (Earth, Mars's dust) ----------------
+    // A 2D cloud layer's opacity is its map's value. The volumetrics turn the same value into coverage with
+    // min(tile, (0.6 tile + map - 0.6) / 0.4) and erode that with noise, so nothing is left of map values below
+    // 0.6 x (1 - the detail tile's coverage): on Earth a map value of 0.05 comes out at an opacity of 0.002 and 0.10
+    // at 0.03, and the wisps the 2D layer shows vanish as the volumetrics take over from it (user, 2026-10-04). For
+    // Earth's two layers the map value is lifted to the one whose volumetric opacity equals the 2D layer's, up to
+    // where the volumetrics reach it unaided (map value 0.26 on the lower layer, 0.32 on the cirrus); above that the
+    // map is left alone. The tables are that inverse, every 0.02 of map value, from the engine's own chain run on
+    // Earth's cloud types, detail tiles and type map at the step each layer takes from afar, where the swap is seen
+    // (1.5 km; the cirrus at Payloads.CloudMaxSteps' 0.4 km and CloudTypeDensities' 0.008 - scratchpad
+    // earthclouds/lift_curve.py). The layers are told by their radii (Earth's mean radius + 2-8.7 km and 11-12.2 km),
+    // so a mod that moves them simply loses the lift. Every volumetric use follows (the raymarch and the shadow
+    // volume); the 2D layer and the shadows on the ground do not use this function.
+    //
+    // Mars's dust layer the same way (user, 2026-10-04): its detail tile is a passthrough, so the coverage is the
+    // mask's alpha / 0.4, and with the haze type's shape curve nothing shows of mask values below ~0.1 (64% of Mars
+    // lies above that; opacity 0.008 at 0.1, 0.05 at 0.2, where the 2D layer shows the mask value). The table lifts
+    // each value below 0.4 to the one whose opacity, at CloudTypeDensities' haze density, is the 2D layer's
+    // (mars/dust_lift2.py). Only the haze: the lift fades out where the mask's type channel marks a storm front
+    // (the detail selector, 0.1 and up), so the fronts keep their coverage. The layer is told by its radii
+    // (Mars's mean radius - 8.2 km and + 18.6 km).
+
+    public const string CoverageLiftMarker = "RaCoverageLift(";
+
+    public const string CoverageLiftFuncAnchor =
+        "float GetCoverageAndCloudType(vec2 sphericalUV, vec3 cloudSpacePosition, float innerCloudRadius, out float cloudType)\n{\n";
+
+    public const string CoverageLiftCallAnchor = "    if (globalCoverage < 0.01)\n        return 0.0;\n";
+
+    public const string CoverageLiftCall = CoverageLiftCallAnchor +
+        "\n    // PATCHED (Real Atmospheres: faint clouds kept in the volumetrics)\n" +
+        "    globalCoverage = RaCoverageLift(globalCoverage, detailMapToSample);\n";
+
+    public static readonly string CoverageLiftFunc =
+"""
+// ---- Real Atmospheres: faint clouds kept in the volumetrics ----
+// The map value whose volumetric opacity equals the 2D layer's (which is the map value itself), every 0.02 of map
+// value up to where the volumetrics reach it unaided. Earth's lower layer and its cirrus, and Mars's dust haze
+// (not its storm fronts, which the selector marks), told by their radii.
+const float raEarthLowerLift[14] = float[14](0.000, 0.091, 0.115, 0.134, 0.151, 0.165, 0.179, 0.191, 0.203, 0.215, 0.226, 0.236, 0.247, 0.257);
+const float raEarthCirrusLift[17] = float[17](0.000, 0.123, 0.154, 0.175, 0.192, 0.207, 0.220, 0.232, 0.243, 0.253, 0.263, 0.273, 0.282, 0.290, 0.299, 0.308, 0.316);
+const float raMarsDustLift[21] = float[21](0.000, 0.116, 0.148, 0.172, 0.191, 0.209, 0.224, 0.239, 0.253, 0.266, 0.278, 0.290, 0.302, 0.314, 0.326, 0.338, 0.350, 0.362, 0.375, 0.387, 0.400);
+
+float RaCoverageLift(float coverage, float selector)
+{
+    bool lower = abs(uboCloudLayer.bottomRadius - 6373000.0) < 50.0 && abs(uboCloudLayer.topRadius - 6379700.0) < 50.0;
+    bool cirrus = abs(uboCloudLayer.bottomRadius - 6382000.0) < 50.0 && abs(uboCloudLayer.topRadius - 6383200.0) < 50.0;
+    bool dust = abs(uboCloudLayer.bottomRadius - 3381300.0) < 50.0 && abs(uboCloudLayer.topRadius - 3408100.0) < 50.0;
+    if (!lower && !cirrus && !dust)
+        return coverage;
+    float x = coverage / 0.02;
+    int last = lower ? 13 : cirrus ? 16 : 20;
+    if (x >= float(last))
+        return coverage;
+    int i = int(x);
+    float below = lower ? raEarthLowerLift[i] : cirrus ? raEarthCirrusLift[i] : raMarsDustLift[i];
+    float above = lower ? raEarthLowerLift[i + 1] : cirrus ? raEarthCirrusLift[i + 1] : raMarsDustLift[i + 1];
+    float lifted = max(coverage, mix(below, above, x - float(i)));
+    return dust ? mix(lifted, coverage, smoothstep(0.0, 0.1, selector)) : lifted;
+}
+
+""";
+
+    // ---------------- CloudFunctions.glsl: the cloud map flows in the volumetric clouds as in the 2D layer ----------------
+    // A 2D cloud layer with a flowmap reads its map twice, each time displaced along the flow by a phase of the loop,
+    // half a loop apart, and cross-fades the two: the map itself streams (2DCloud.comp, SampleCloudColor). The
+    // volumetric clouds take a flowmap too, but the engine applies it to their fine noise only; the map that gives
+    // them their colours and their coverage is read at fixed positions. Since the volumetric clouds were given the
+    // giants up to 10,000-14,000 km (2026-10-03) the belts and storms stood still wherever they are drawn.
+    // Now the volumetric lookups of the global map, the detail selector and the colour map are displaced the same
+    // way, with the 2D layer's own flowmap, displacement, phase noise and clock, so the two stay in step through
+    // the swap. The 2D layer displaces a point on its shell, the layer's top; the same angle is used at every height.
+    // The detail tile is left where it is (cross-fading two unrelated stretches of it would flatten the deck twice
+    // a loop), and the noise keeps its own flow. Only layers with a 2D flowmap are touched. The raymarch pipeline
+    // has the 2D flowmap's specialization constant; the shadow volume's pipelines are not given it, so there the
+    // layer's 2D flow displacement (zero without a flowmap) tells, and the far shadows come from the flowed map too.
+
+    public const string MapFlowMarker = "RaSetMapFlow(";
+
+    public const string MapFlowFunc =
+"""
+// ---- Real Atmospheres: the cloud map flows in the volumetric clouds as in the 2D layer ----
+// Where the layer's map is read at this point: two directions from the planet's centre, displaced along the 2D
+// layer's flowmap by two phases of its loop half a loop apart, and how to blend them (2DCloud.comp, SampleCloudColor).
+vec3 raMapFlowDirection0 = vec3(0.0, 0.0, 1.0);
+vec3 raMapFlowDirection1 = vec3(0.0, 0.0, 1.0);
+float raMapFlowBlend = 0.0;
+
+bool RaMapFlows()
+{
+    return twoDimensionalFlowMapSpecialization > 0 || uboCloudLayer.twoDimensionalFlowMapDisplacement > 0.0;
+}
+
+void RaSetMapFlow(vec2 sphericalUV, vec3 cloudSpacePosition)
+{
+    vec3 cloudNormal = normalize(cloudSpacePosition);
+    vec3 flowValue = textureLod(sampler2D(globalTextures[uboCloudLayer.twoDimensionalFlowMapTextureId],
+        samplers[uboCloudLayer.linearRepeatSamplerId]), sphericalUV, 0.0).xyz * 2.0 - vec3(1.0);
+    flowValue.x = abs(flowValue.x) < 0.015 ? 0.0 : flowValue.x;
+    flowValue.y = abs(flowValue.y) < 0.015 ? 0.0 : flowValue.y;
+    flowValue.xy *= uboCloudLayer.twoDimensionalFlowMapDisplacement;
+
+    vec3 upVector = vec3(0.0, 0.0, -1.0);
+    if (abs(dot(cloudNormal, upVector)) > 0.99999)
+        upVector = vec3(0, 1, 0);
+    vec3 bitangent = normalize(upVector - cloudNormal * dot(upVector, cloudNormal));
+    vec3 tangent = normalize(cross(bitangent, cloudNormal));
+    vec3 flow = flowValue.x * tangent + flowValue.y * bitangent;
+
+    float phaseOffset = textureLod(sampler2D(globalTextures[uboCloudLayer.flowMapNoiseTextureId],
+        samplers[uboCloudLayer.linearRepeatSamplerId]), sphericalUV, 0.0).r;
+    float phase0 = fract(uboCloudLayerDynamicData.twoDimensionalFlowMapPhase + phaseOffset);
+    float phase1 = fract(phase0 + 0.5);
+
+    // the 2D layer displaces a point on its shell, the layer's top
+    vec3 shellPosition = cloudNormal * uboCloudLayer.topRadius;
+    raMapFlowDirection0 = normalize(shellPosition + flow * phase0);
+    raMapFlowDirection1 = normalize(shellPosition + flow * phase1);
+    raMapFlowBlend = abs((phase0 - 0.5) * 2.0);
+}
+
+vec4 RaGlobalMap(vec3 direction)
+{
+    if (volumetricTextureCubeMapSpecialization > 0)
+    {
+        return textureLod(samplerCube(globalTextureCubes[uboCloudLayer.cloudColorTextureId],
+            samplers[uboCloudLayer.linearRepeatSamplerId]), direction, 0.0f);
+    }
+    return textureLod(sampler2D(globalTextures[uboCloudLayer.cloudColorTextureId],
+        samplers[uboCloudLayer.linearRepeatSamplerId]), calculateSphericalUV(direction), 0.0f);
+}
+
+float RaDetailSelector(vec3 direction)
+{
+    if (detailSelectorTextureCubeMapSpecialization > 0)
+    {
+        return textureLod(samplerCube(globalTextureCubes[uboCloudLayer.detailSelectorTextureId],
+            samplers[uboCloudLayer.linearRepeatSamplerId]), direction, 0.0f).r;
+    }
+    return textureLod(sampler2D(globalTextures[uboCloudLayer.detailSelectorTextureId],
+        samplers[uboCloudLayer.linearRepeatSamplerId]), calculateSphericalUV(direction), 0.0f).r;
+}
+// ---- end map flow ----
+
+""";
+
+    public const string MapFlowLookupAnchor =
+        "    bool singleChannelGlobalMap = volumetricTextureSingleChannelSpecialization > 0 || uboCloudLayer.volumetricTextureSingleChannel > 0;\n";
+
+    public const string MapFlowLookup =
+        "    // PATCHED (Real Atmospheres: the cloud map flows in the volumetric clouds as in the 2D layer)\n" +
+        "    if (RaMapFlows())\n" +
+        "    {\n" +
+        "        RaSetMapFlow(sphericalUV, cloudSpacePosition);\n" +
+        "        globalMap = mix(RaGlobalMap(raMapFlowDirection0), RaGlobalMap(raMapFlowDirection1), raMapFlowBlend);\n" +
+        "        detailMapToSample = mix(RaDetailSelector(raMapFlowDirection0), RaDetailSelector(raMapFlowDirection1), raMapFlowBlend);\n" +
+        "    }\n\n" + MapFlowLookupAnchor;
+
+    public const string MapFlowColourAnchor = "    localColor = GetLocalColor(sphericalUV, normalize(cloudSpacePosition));\n";
+
+    public const string MapFlowColour =
+        "    // PATCHED (Real Atmospheres: the colour map flows with the coverage; the directions were set as it was read)\n" +
+        "    localColor = RaMapFlows()\n" +
+        "        ? mix(GetLocalColor(calculateSphericalUV(raMapFlowDirection0), raMapFlowDirection0),\n" +
+        "              GetLocalColor(calculateSphericalUV(raMapFlowDirection1), raMapFlowDirection1), raMapFlowBlend)\n" +
+        "        : GetLocalColor(sphericalUV, normalize(cloudSpacePosition));\n";
+
+    /// <summary>How far the giants' 2D cloud map travels in one loop where its flowmap is at full scale, km. The
+    /// flowmaps average 0.08-0.15 of full scale over a planet (measured), so at the 700 km the volumetric noise
+    /// needs (ShadowBuilder.InsertGiantClouds) the map moved 50-100 km a loop, a texel or two, and showed nothing at
+    /// any time warp (user, 2026-10-05). At 4,000 km it travels 300-600 km on average, 3,600 km in the fastest jet;
+    /// the loop is lengthened with it, so the winds stay the measured ones. The game's own Jupiter uses 21,080 km.</summary>
+    public const double Giant2DFlowDisplacementKm = 4000.0;
+
+    // ---------------- RaymarchCloud.comp: an optically thick step is lit at its near face ----------------
+    // The raymarch takes one sample at the end of each step and lets it stand for the whole step: its density
+    // gives the step's opacity, and the light is looked up at that same point. Steps grow with the distance to the
+    // camera (0.275% of it on the giants, to 25-30 km). In a dense deck one such step holds tens of optical depths,
+    // of which only the first shows; the light, though, is taken at the step's far end, kilometres inside the
+    // cloud, where next to none arrives. So a dense deck darkens as the camera backs away: through the engine's
+    // integration (scratchpad giants/deck_face.py, solid puffs) Jupiter's dense type comes out at 0.79 of its
+    // finely stepped brightness from 300 km, 0.41 from 2,000 km and 0.14 from 10,000 km, where the 2D map takes
+    // over; Saturn's, Uranus's and Neptune's decks at 0.98, 0.85 and 0.44 (0.32 with a low Sun). It is why the
+    // game's Jupiter drew its dense belts far darker in 3D than in 2D, and why density could not be told from
+    // darkness there.
+    // Now, where a step holds more than 2 optical depths, the point in it where the optical depth from the step's
+    // start passes 1 is found by halving the step up to five times (each part taken at the density of its far end,
+    // as the march itself does; as many halvings as bring the part down to a mean free path), and the light, the
+    // dark-edge term, the colour and the reported position are taken there. The step's opacity is the game's.
+    // Brightness then holds within a few percent from 300 km to 10,000 km (1.03-1.17 of the finely stepped value
+    // on all four giants). Costs up to five density lookups on the step that meets the deck, beside the ten or so
+    // of its light march. Only layers that take their colour from a map: the giants' decks, which must come out
+    // at their map's brightness as the 2D layer draws it. Every other body's clouds are lit as before.
+    //
+    // The light at that point needs the same care. The engine's light march (GetDensityToLight) takes its samples
+    // evenly over the whole way to the layer's top, 2 to 20 km apart, each standing for its stretch. A sample lit
+    // at the face of a dense cloud sits a mean free path or two (0.5-1 km) inside it: the first light sample is
+    // usually already out of the cloud, so the sample counts as unshadowed whatever the Sun's angle, and the deck
+    // keeps its noon brightness toward the terminator. Against the 2D layer's law (0.05 + 0.95 x the Sun's zenith
+    // cosine, at the brightness of the thin deck the user matched to the map), lit at the face with the type's
+    // brightness at 1.7, the deck came out at 1.3 with the Sun overhead, 1.2 at 30 and 45 degrees, 1.5 at 60,
+    // 2.6 at 75 and 4 at 82 (user, 2026-10-05: "the brightness is too much on all bodies. It only looks right on
+    // the exact subsolar area, everywhere else is too bright"; scratchpad giants/deck_light.py). So on these
+    // layers every lit sample also sums the density toward the Sun over its first 7.5 mean free paths (four
+    // stretches ending at 0.5, 1.5, 3.5 and 7.5, each taken at its middle), and the light is dimmed by whichever
+    // is larger, that or the engine's march. Then: 1.1 overhead, 0.98 at 30 and 45 degrees, 1.1 at 60, 1.4 at 75
+    // and 1.6 at 82, the same from 300 km and from 5,000 km, on all four giants; toward the terminator the puffs'
+    // shadows on each other, which the engine's march does catch, take it down further. Four more density
+    // lookups per lit sample; a dense deck is opaque after one to three.
+
+    //
+    // Venus's deck is lit the same way (user, 2026-10-05, once the giants looked right: "This would be a good
+    // patch to apply to Venus' clouds since they are so similar to the giants' clouds on a technical level and I
+    // was struggling with that brightness discrepency before"). It is one dense deck too (0.0035 per metre, a mean
+    // free path of 0.29 km), stepped up to 4 km at its 2D switch: 14 optical depths a step. As the game lights it,
+    // its brightness from 1,800 km falls with the step limit, 0.174 per unit colour at 1.5 km, 0.152 at 4 km, 0.110
+    // at 8 km and 0.089 at 22 km, and its grain grows, 10%, 17%, 36% and 52% from pixel to pixel (Sun 30 degrees
+    // from overhead; scratchpad giants/deck_light.py). Lit at the face under its own shadow it is 0.163-0.198 with
+    // 12-13% grain at every one of those limits, so the limit no longer costs brightness or grain, only shape. It
+    // has no colour map, so it is told by its layer's radii (the body's mean radius + its types' lowest base and
+    // highest top, as the layer is built): 6,051.8 + 48 km and + 72 km. No other body's clouds are touched: the
+    // same emulation puts Earth's towering cumulus at 1.4-1.95 of its brightness, its stratus at 0.8, Mars's dust
+    // at 0.9 and Titan's clouds at 0.45-0.85, all looks tuned by eye as they are.
+
+    public const string FaceLightMarker = "raLitPosition";
+
+    public const string FaceLightFuncAnchor =
+        "// Raymarches the cloud color, returns color, cloud absorption (to be applied to background)\n";
+
+    public const string FaceLightFunc =
+        "// ---- Real Atmospheres: the layers lit at the face of an optically thick step, under the cloud's own shadow there ----\n" +
+        "// Those that take their colour from a map (the giants' decks), and Venus's deck, told by its radii.\n" +
+        "bool RaLitAtFace()\n" +
+        "{\n" +
+        "    return volumetricColorMapSpecialization > 0\n" +
+        "        || (abs(uboCloudLayer.bottomRadius - 6099800.0) < 50.0 && abs(uboCloudLayer.topRadius - 6123800.0) < 50.0);\n" +
+        "}\n" +
+        "\n" + FaceLightFuncAnchor;
+
+    public const string FaceLightAnchor =
+        "        // Perform lighting calculations if we have non-zero density\n" +
+        "        if (cloudDensity > 0.0)\n" +
+        "        {\n" +
+        "            float densityToLight = GetDensityToLight(rayPosition, planetPosition, lightDirection, innerCloudRadius,\n";
+
+    public const string FaceLight =
+        "        // PATCHED (Real Atmospheres: an optically thick step is lit where its first optical depth ends, not at its far end)\n" +
+        "        vec3 raLitPosition = rayPosition;\n" +
+        "        float raLitDensity = cloudDensity;\n" +
+        "        if (RaLitAtFace() && cloudDensity * currentStepSize > 2.0)\n" +
+        "        {\n" +
+        "            vec3 raStepStart = rayPosition - worldViewDir * currentStepSize;\n" +
+        "            float raNear = 0.0; float raFar = currentStepSize; float raDepth = 0.0;\n" +
+        "            int raCuts = clamp(int(ceil(log2(cloudDensity * currentStepSize))), 1, 5);\n" +
+        "            for (int raCut = 0; raCut < raCuts; raCut++)\n" +
+        "            {\n" +
+        "                float raMiddle = 0.5 * (raNear + raFar);\n" +
+        "                vec3 raPosition = raStepStart + worldViewDir * raMiddle;\n" +
+        "                float raProfile = 0.0; float raBrightness = 1.0; float raNoise = 0.0; vec3 raColor;\n" +
+        "                float raDensity = GetCloudDensity(raPosition, planetPosition, innerCloudRadius, outerCloudRadius,\n" +
+        "                    noiseSampler, interpolatedMipLevels, vec2(uboCloudLayer.minInvNoiseScale, uboCloudLayer.maxInvNoiseScale),\n" +
+        "                    raProfile, raBrightness, raColor, raNoise);\n" +
+        "                if (raDepth + raDensity * (raMiddle - raNear) >= 1.0)\n" +
+        "                {\n" +
+        "                    raFar = raMiddle;\n" +
+        "                    raLitPosition = raPosition;\n" +
+        "                    raLitDensity = raDensity;\n" +
+        "                    dimensionalProfile = raProfile; multipleScatteringBrightness = raBrightness;\n" +
+        "                    localColor = raColor; noiseProfile = raNoise;\n" +
+        "                }\n" +
+        "                else\n" +
+        "                {\n" +
+        "                    raDepth += raDensity * (raMiddle - raNear);\n" +
+        "                    raNear = raMiddle;\n" +
+        "                }\n" +
+        "            }\n" +
+        "        }\n" +
+        "\n" +
+        "        // Perform lighting calculations if we have non-zero density\n" +
+        "        if (cloudDensity > 0.0)\n" +
+        "        {\n" +
+        "            float densityToLight = GetDensityToLight(raLitPosition, planetPosition, lightDirection, innerCloudRadius,\n";
+
+    public const string NearLightAnchor =
+        "            // Animate the light ray dithering noise with the golden ratio which is cheaper than resampling the noise texture per-step\n";
+
+    public const string NearLight =
+        "            // PATCHED (Real Atmospheres: the cloud's own shadow on the sample, which the light march's long steps miss)\n" +
+        "            if (RaLitAtFace())\n" +
+        "            {\n" +
+        "                float raFree = 1.0 / max(raLitDensity, 1e-9);\n" +
+        "                float raNearLight = 0.0; float raFrom = 0.0;\n" +
+        "                for (int raPart = 0; raPart < 4; raPart++)\n" +
+        "                {\n" +
+        "                    float raTo = raFree * (raPart == 0 ? 0.5 : raPart == 1 ? 1.5 : raPart == 2 ? 3.5 : 7.5);\n" +
+        "                    float raProfile = 0.0; float raBrightness = 1.0; float raNoise = 0.0; vec3 raColor;\n" +
+        "                    raNearLight += (raTo - raFrom) * GetCloudDensity(raLitPosition + lightDirection * (0.5 * (raFrom + raTo)),\n" +
+        "                        planetPosition, innerCloudRadius, outerCloudRadius, noiseSampler, interpolatedMipLevels,\n" +
+        "                        vec2(uboCloudLayer.minInvNoiseScale, uboCloudLayer.maxInvNoiseScale), raProfile, raBrightness, raColor, raNoise);\n" +
+        "                    raFrom = raTo;\n" +
+        "                }\n" +
+        "                densityToLight = max(densityToLight, raNearLight);\n" +
+        "            }\n" +
+        "\n" + NearLightAnchor;
+
+    public const string FaceLightPositionAnchor = "            averagePosition += integrationWeight * rayPosition;\n";
+    public const string FaceLightPosition = "            averagePosition += integrationWeight * raLitPosition;\n";
 
     // ---------------- 2DCloud.comp + RaymarchCloud.comp: the rings' shadow ----------------
     // KSA 2026.9.22 shades the atmosphere and the surface under a planet's rings, but not its

@@ -6,6 +6,11 @@ No game files are modified. At launch the mod builds patched copies of the game'
 
 ## Features
 
+### Clouds
+
+- Volumetric clouds stay in view from higher up before the flat 2D layer takes over: up to 3,000 km over Earth, 1,800 km over Venus, 2,000 km over Mars, 2,200 km over Titan, 800 km over Triton, 14,000 km over Jupiter, 12,000 km over Saturn and 10,000 km over Uranus and Neptune
+- Clouds shade themselves along the whole path sunlight takes through their layer, in up to 10 steps, instead of over its first kilometre or so, so their bases and the sides away from the Sun darken and they shadow each other when the Sun is low
+
 ### Flight atmospheres
 
 - Drag and engine back-pressure follow measured density and pressure profiles instead of the game's single exponential: Earth (US Standard Atmosphere 1976), Venus (VIRA), Mars (Pathfinder and Phoenix entry data), Titan (Huygens), Jupiter (Galileo probe), Saturn, Uranus and Neptune (Voyager and Cassini occultations), Triton (Voyager) and Pluto (New Horizons)
@@ -14,6 +19,7 @@ No game files are modified. At launch the mod builds patched copies of the game'
 ### Earth
 
 - Gas density from the US Standard Atmosphere 1976 instead of a single exponential, so the blue limb thins out at the right height
+- Ozone shaped like the same standard's, centred at 22 km and spread from 4 to 41 km (stock: 10 to 30 km), with the game's amount of it, absorbing over each colour's share of its band so that twilight turns blue rather than magenta
 
 ### Mars
 
@@ -21,6 +27,7 @@ No game files are modified. At launch the mod builds patched copies of the game'
 - Dust scattering from Mie theory, with a 9 km scale height
 - Exact Mie phase function for Martian dust, giving the blue sun halo and blue sunsets
 - Double-exponential dust density profile from the mean surface, thicker in the basins
+- Dust clouds as opaque up close as the 2D dust layer shows them from afar: an ordinary dusty day's optical depth (0.4) under a full cloud, a light veil between them
 - Water-ice cirrus at 22–29 km, in 2D and volumetric
 
 ### Venus
@@ -28,22 +35,25 @@ No game files are modified. At launch the mod builds patched copies of the game'
 - Dense CO₂ Rayleigh scattering, at 53× Earth's surface density
 - Gas density from the Venus International Reference Atmosphere, falling off fast above the clouds
 - One solid cloud deck at 48–72 km, densest at its base and solid to about 70 km, where Venus's cloud tops are measured, with the game's cloud patterns as low lumps on top (stock: separate cumulus columns at 10–45 km, some towering 13 km, with holes between them), in Venus's measured pale cream white
+- From orbit the clouds are opaque, as Venus's are, with their markings a little darker and yellower than the cloud around them (stock: a see-through cloud map over the gas below)
 - Blue-absorbing haze below the clouds
 - A lower haze that thickens toward the cloud base, as the Venera probes measured, so the clear air near the ground turns gradually into the clouds
 
 ### The giants
 
 - H₂/He Rayleigh scattering at the gas's real strength, from each planet's composition at 1 bar, with the gas density measured by the Galileo probe (Jupiter), Voyager and Cassini
+- Volumetric cloud decks that keep their brightness from close up to where the 2D map takes over (the game's darken with distance)
 
 ### Jupiter
 
-- Cloud decks from −1 to 12 km and 15 to 68 km, the upper one reaching Jupiter's visible edge, where its measured haze turns opaque to a grazing view (about 30 mbar)
+- Cloud decks from −1 to 12 km and 15 to 111 km. The upper one sits well above Jupiter's measured cloud tops (about 40 km, 150 mbar), as Uranus's and Neptune's do above theirs: the colour map is a photograph, which already shows what the gas and haze above the clouds do to them, so only as much shows above the deck as above Neptune's
+- Bright zones high and dark belts low in the volumetric clouds (the game has them the other way up), with the vortices left deep, and the same brightness as the 2D map as they take over from it
 - A thin stratospheric haze above the clouds, as Cassini measured it
 
 ### Saturn
 
-- Clouds that reach where Cassini found the top of Saturn's haze, about 50 mbar
-- A thin stratospheric haze above them, as Hubble and Cassini measured it, which turns the gas's blue limb into a paler rim
+- Clouds from 77.5 to 172.5 km, well above where Cassini found the top of Saturn's haze (about 50 mbar), for the same reason as Jupiter's
+- A thin stratospheric haze as Hubble and Cassini measured it, moved up with the clouds and compressed onto their tops at the measured haze-to-gas proportion, which blends the cloud tops into the sky and turns the gas's blue limb into a paler rim
 - Methane colouring
 - Volumetric clouds, with cloud height following the planet's map
 - Colour map at 2048 px per cube face (stock: 1024)
@@ -67,9 +77,25 @@ No game files are modified. At launch the mod builds patched copies of the game'
 
 - N₂ Rayleigh scattering from measured surface pressure and temperature
 - Pluto's air and haze as New Horizons measured them: the haze thins out with the nitrogen and is as bright as the spacecraft saw it from every angle, a faint blue rim in sunlight and a bright ring when lit from behind
-- Triton's air and haze as Voyager measured them: one even haze layer close to the ground, visible as a ring when looking toward the Sun
-- Stratified haze bands on Pluto, animated with simulation time
+- Triton's air and haze as Voyager measured them: a thin haze layer close to the ground, visible as a ring when looking toward the Sun
+- Stratified haze bands on Pluto, animated with simulation time, and the same on Triton, where they are faint: Voyager saw no bands there, so Triton's are modelled on Pluto's
 - Nitrogen-ice clouds on Triton at 4–6.5 km
+
+### Terrain
+
+- The terminator on rugged ground fades instead of cutting from lit to black along one line. The game draws a body's shadow on its own ground as a smooth ball's, which showed wherever little air dims the setting Sun first, most of all on Pluto. Now the Sun sets over the band of horizons the body's relief allows (Pluto about 5°, the Moon 6°), so slopes facing it dim gradually past the terminator, and peaks still keep the light longest
+
+### Moons
+
+- A planet keeps its detail while a small moon passes. The game draws one body in detail for the camera (terrain, volumetric clouds, the full atmosphere) and picked a moon over its planet whenever the moon came nearer than the planet's centre. From orbit that happened once every orbit of Phobos, Deimos, Pan, Miranda or Charon, and under time warp the planet flickered. A moon now takes over once the camera is within 25 of its radii, where it spans 4.6°: 280 km from Phobos, 5,900 km from Miranda.
+
+## Settings
+
+With [ModMenu](https://github.com/MrJeranimo/ModMenu) installed, the game's Mods menu has a Real Atmospheres page:
+
+- **Procedural haze bands**: the bands in the haze of Pluto, Triton and Titan, which drift round each body and change with time. Unticked, their haze is smooth.
+
+The setting is kept in `RealAtmospheres\settings.toml` in the game's documents folder (with Borea, the instance's folder), which can also be edited with the game closed.
 
 ## Installation
 

@@ -22,8 +22,9 @@ TitanCloudsMask2D.png
 TritonCloudsMaskVolumetric.dds
 TritonCloudsMask2D.png
 
-# Ice/gas giants: volumetric cloud mask, cloud flowmap, colour map (Jupiter uses stock files)
+# Ice/gas giants: volumetric cloud mask, cloud flowmap, colour map (Jupiter uses stock files but for its mask)
 GiantCloudDetail.dds
+JupiterCloudsMask.dds
 SaturnCloudsMask.dds
 SaturnFlowmap.dds
 SaturnDiffuse.ktx2

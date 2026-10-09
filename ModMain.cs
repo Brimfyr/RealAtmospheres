@@ -106,21 +106,43 @@ public class ModMain
         MethodInfo? fillAtmo = atmoRenderer == null ? null : AccessTools.Method(atmoRenderer, "FillPlanetAtmosphereData");
         if (fillAtmo != null && Patches.CanInjectSimTime(fillAtmo))
         {
+            // The haze's turning about the body's own pole goes out in the data the method returns, when
+            // that still has the slots for it: see Patches.FillAtmosphereDataTurnPostfix.
+            bool turn = Patches.CanInjectHazeTurn(fillAtmo);
+            if (!turn)
+                ShadowBuilder.Log("WARN: the atmosphere data has no free ring slots; the haze turns about fixed axes");
             try
             {
                 harmony.Patch(fillAtmo,
                     prefix: new HarmonyMethod(typeof(Patches), nameof(Patches.FillAtmosphereDataPrefix)),
-                    postfix: new HarmonyMethod(typeof(Patches), nameof(Patches.FillAtmosphereDataPostfix)));
+                    postfix: new HarmonyMethod(typeof(Patches),
+                        turn ? nameof(Patches.FillAtmosphereDataTurnPostfix) : nameof(Patches.FillAtmosphereDataPostfix)));
             }
             catch (Exception e)
             {
                 ShadowBuilder.Log($"WARN: could not hook FillPlanetAtmosphereData ({e.GetType().Name}); haze animation is not sim-linked");
             }
+            // The renderer itself, for the tables it keeps: they are worked out again when the haze bands are
+            // switched (Patches.RendererSeenPrefix). A hook of its own, so that nothing above depends on it.
+            if (!fillAtmo.IsStatic && Patches.CanForgetTables(atmoRenderer!))
+            {
+                try
+                {
+                    harmony.Patch(fillAtmo, prefix: new HarmonyMethod(typeof(Patches), nameof(Patches.RendererSeenPrefix)));
+                }
+                catch (Exception e)
+                {
+                    ShadowBuilder.Log($"WARN: the atmosphere renderer was not reached ({e.GetType().Name}); switching the haze bands shows fully after the next change of body");
+                }
+            }
+            else
+                ShadowBuilder.Log("WARN: the atmosphere renderer's kept tables were not found; switching the haze bands shows fully after the next change of body");
         }
         else
             ShadowBuilder.Log("WARN: AtmosphereRenderer.FillPlanetAtmosphereData(body, atmoRef) not found; haze animation is not sim-linked");
 
         FlightAtmospheres.Install(harmony);
+        NearbyBody.Install(harmony);
 
         ShadowBuilder.Log("installed (XML + shader redirects active)");
     }
@@ -281,8 +303,8 @@ internal static class Patches
     /// haze ran on wall-clock time on Pluto and Triton and stood still on Titan, whose stock
     /// extent (20 km) the shader took as a fixed time.
     ///
-    /// The swap is harmless on these bodies: Pluto has no ozone, and Titan's is too thin to
-    /// matter at any extent. Nothing else reads the extent while the call runs.
+    /// The swap is harmless on these bodies: Pluto and Triton have no ozone, and Titan's is too
+    /// thin to matter at any extent. Nothing else reads the extent while the call runs.
     /// </summary>
     public static void FillAtmosphereDataPrefix(object body, object atmoRef, out object? __state)
     {
@@ -292,37 +314,214 @@ internal static class Patches
             if (body.GetType().GetProperty("MeanRadius")?.GetValue(body) is not double meanRadius
                 || !IsHazeBody(meanRadius))
                 return;
-            float? clock = HazeClockSeconds();
-            if (clock == null) return;
+            double? seconds = HazeClock();
+            if (seconds == null) return;
             object? extent = OzoneExtent(atmoRef);
-            if (extent == null) return;
-            __state = SetDistanceMetres(extent, clock.Value);
+            DistanceSwap? swap = extent == null ? null : SetDistanceMetres(extent, HazeClockFor(seconds.Value, HazeBandsNow()));
+            __state = new HazeState(swap, meanRadius, seconds.Value);
         }
         catch { __state = null; }
     }
 
+    /// <summary>
+    /// The haze clock as the shader takes it: elapsed seconds, a thousand on so that it is past the shader's 0.5
+    /// "is this a clock" line from the start of a game, and run backwards while the player has the haze bands
+    /// switched off (the shader's RaHazeBandsOn). The ozone extent it stands in for is harmless at any size on these
+    /// bodies, and at either sign: the ozone's own density is clamped.
+    /// </summary>
+    public static float HazeClockFor(double simSeconds, bool bands) =>
+        (float)(bands ? simSeconds + 1000.0 : -(simSeconds + 1000.0));
+
+    private static object? _renderer;
+    private static FieldInfo? _tablesValid;
+    private static bool _bandsSeen = Settings.DefaultHazeBands, _bandsRead;
+
+    /// <summary>The player's switch, and the renderer's kept tables thrown out when it has changed: Pluto's and
+    /// Triton's bands are in the haze's density, which the transmittance, multiple scattering and ambient tables
+    /// are worked out from once for each body and kept.</summary>
+    private static bool HazeBandsNow()
+    {
+        if (!_bandsRead)
+        {
+            _bandsRead = true;
+            Settings.Load();
+            _bandsSeen = Settings.HazeBands;
+        }
+        bool bands = Settings.HazeBands;
+        if (bands != _bandsSeen)
+        {
+            _bandsSeen = bands;
+            ForgetTables();
+            ShadowBuilder.Log("haze bands switched " + (bands ? "on" : "off"));
+        }
+        return bands;
+    }
+
+    /// <summary>Whether the renderer still keeps its tables' validity where this clears it.</summary>
+    public static bool CanForgetTables(Type renderer)
+    {
+        _tablesValid = renderer.GetField("_planetLutsValid", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        return _tablesValid?.FieldType == typeof(bool[]);
+    }
+
+    /// <summary>Prefix on the same method, for the renderer it is called on.</summary>
+    public static void RendererSeenPrefix(object __instance) => _renderer = __instance;
+
+    /// <summary>Marks every body's kept tables as stale, as the engine does when a body's atmosphere is edited.</summary>
+    public static bool ForgetTables()
+    {
+        try
+        {
+            if (_renderer == null || _tablesValid?.GetValue(_renderer) is not bool[] valid) return false;
+            Array.Clear(valid);
+            return true;
+        }
+        catch { return false; }
+    }
+
     public static void FillAtmosphereDataPostfix(object? __state)
     {
-        if (__state is DistanceSwap swap)
+        if (__state is HazeState { Swap: DistanceSwap swap })
             _distanceValue?.SetValue(swap.Reference, swap.Metres);
     }
+
+    /// <summary>
+    /// The same postfix, which also sends the haze's turning to the shader in the atmosphere data the
+    /// method returns: the body's rotation axis as the game has it, and the haze's angle about it.
+    ///
+    /// The haze march used to turn its pattern about an axis written into the shader for each body,
+    /// at one rate for all. Titan's was not its pole: the haze went over the poles instead of round
+    /// the planet (user, 2026-10-06). And the pattern turned against the ground at twice its rate,
+    /// not with it. Now it turns about the pole the ground turns about, at the ground's rate plus the
+    /// wind that carries the real haze (HazeWind), so from the ground it drifts slowly.
+    ///
+    /// Harmony boxes the returned struct for a "ref object" result and copies it back afterwards.
+    /// </summary>
+    public static void FillAtmosphereDataTurnPostfix(object body, ref object __result, object? __state)
+    {
+        FillAtmosphereDataPostfix(__state);
+        if (__state is not HazeState state) return;
+        try { WriteHazeTurn(__result, body, state.MeanRadius, state.Seconds); }
+        catch { }
+    }
+
+    private sealed record HazeState(DistanceSwap? Swap, double MeanRadius, double Seconds);
+
+    // The haze's turning (cached reflection).
+    private static Type? _turnDataType, _turnBodyType;
+    private static FieldInfo? _useRings, _ringNormal, _ringOuter;
+    private static FieldInfo?[]? _ringNormalParts;
+    private static MethodInfo? _rotationAxis, _angularVelocity;
+
+    /// <summary>What the shader takes as "the haze's turning is in the ring slots": an outer radius no ring has.</summary>
+    public const float HazeTurnMarker = -1f;
+
+    /// <summary>Whether the data FillPlanetAtmosphereData returns still has the ring slots the haze's
+    /// turning is sent in, and the method the body argument. Checked before patching, like the clock.</summary>
+    public static bool CanInjectHazeTurn(MethodInfo fill) =>
+        fill.GetParameters().Any(p => p.Name == "body") && TurnSlots(fill.ReturnType);
+
+    private static bool TurnSlots(Type data)
+    {
+        if (_turnDataType != data)
+        {
+            _turnDataType = data;
+            _useRings = data.GetField("UseRingShadows");
+            _ringNormal = data.GetField("RingNormalAndInnerRadius");
+            _ringOuter = data.GetField("RingOuterRadius");
+            _ringNormalParts = _ringNormal == null ? null
+                : new[] { "X", "Y", "Z", "W" }.Select(n => _ringNormal.FieldType.GetField(n)).ToArray();
+        }
+        return data.IsValueType && _useRings?.FieldType == typeof(int) && _ringOuter?.FieldType == typeof(float)
+            && _ringNormalParts != null && _ringNormalParts.All(f => f?.FieldType == typeof(float));
+    }
+
+    /// <summary>Writes the haze's turning into a haze body's atmosphere data (boxed): its rotation
+    /// axis in the ring normal, the haze's angle about it in the inner radius, and the marker in the
+    /// outer radius. A ringed body's slots are its rings' and are left alone. The shader reads them
+    /// in RaymarchAtmosphereHorizontal.</summary>
+    public static bool WriteHazeTurn(object data, object body, double meanRadius, double simSeconds)
+    {
+        if (!TurnSlots(data.GetType()) || _useRings!.GetValue(data) is not int rings || rings != 0) return false;
+        if (HazeTurn(body, meanRadius, simSeconds) is not (double x, double y, double z, double angle)) return false;
+        object normal = _ringNormal!.GetValue(data)!;
+        _ringNormalParts![0]!.SetValue(normal, (float)x);
+        _ringNormalParts[1]!.SetValue(normal, (float)y);
+        _ringNormalParts[2]!.SetValue(normal, (float)z);
+        _ringNormalParts[3]!.SetValue(normal, (float)angle);
+        _ringNormal.SetValue(data, normal);
+        _ringOuter!.SetValue(data, HazeTurnMarker);
+        return true;
+    }
+
+    /// <summary>A haze body's rotation axis in the frame the shaders work in (the game's
+    /// GetRotationAxisCce, the frame it hands ring normals over in), and how far its haze has turned
+    /// about it, right-handed, between -pi and pi: the ground's own rate (GetAngularVelocity, negative
+    /// for a body turning backwards) plus the haze's wind over its distance from the axis. Wrapped in
+    /// double precision, so the angle stays exact however long the save. Null if the body no longer
+    /// offers the two.</summary>
+    public static (double X, double Y, double Z, double Angle)? HazeTurn(object body, double meanRadius, double simSeconds)
+    {
+        Type bt = body.GetType();
+        if (_turnBodyType != bt)
+        {
+            _turnBodyType = bt;
+            _rotationAxis = AccessTools.Method(bt, "GetRotationAxisCce", Type.EmptyTypes);
+            _angularVelocity = AccessTools.Method(bt, "GetAngularVelocity", Type.EmptyTypes);
+        }
+        if (_rotationAxis?.Invoke(body, null) is not object axis || _angularVelocity?.Invoke(body, null) is not double spin
+            || !double.IsFinite(spin))
+            return null;
+        double x = Component(axis, "X"), y = Component(axis, "Y"), z = Component(axis, "Z");
+        double length = Math.Sqrt(x * x + y * y + z * z);
+        if (!(length > 0.5)) return null;
+        (double wind, double altitude) = HazeWind(meanRadius);
+        double rate = spin + (spin < 0.0 ? -wind : wind) / (meanRadius + altitude);
+        return (x / length, y / length, z / length, Math.IEEERemainder(rate * simSeconds, 2.0 * Math.PI));
+    }
+
+    private static double Component(object vector, string name) =>
+        vector.GetType().GetField(name)?.GetValue(vector) switch { double d => d, float f => f, _ => double.NaN };
+
+    /// <summary>
+    /// The wind that carries each haze body's haze round against the ground, in m/s, positive the way
+    /// the ground turns, and the height above the mean radius it is taken at, in m.
+    ///
+    /// Titan: its stratosphere turns the way the ground does and far faster. 100-200 m/s at 200-300 km
+    /// (Cassini CIRS; Huygens' Doppler wind experiment found ~100 m/s near 130 km), against the
+    /// ground's 13 m/s there: the haze laps the ground every two days.
+    /// Pluto: no wind was measured. The general circulation models (Forget et al. 2017; Bertrand et
+    /// al. 2020) have the air above 4 km turning against the ground at up to ~10 m/s.
+    /// Triton: Voyager saw its plumes blown west above 8 km, which is the way its ground turns (it
+    /// turns backwards), as the wind over a cold pole should (Ingersoll 1990); some 10 m/s.
+    /// </summary>
+    public static (double Wind, double Altitude) HazeWind(double meanRadius) =>
+        Math.Abs(meanRadius - 2575500.0) < 5000.0 ? (100.0, 300000.0)      // Titan
+        : Math.Abs(meanRadius - 1188300.0) < 5000.0 ? (-8.0, 50000.0)      // Pluto
+        : Math.Abs(meanRadius - 1353400.0) < 5000.0 ? (10.0, 10000.0)      // Triton
+        : (0.0, 0.0);
 
     /// <summary>The haze bodies, as RaBodyHasHaze in AtmosphereData.glsl picks them out.</summary>
     public static bool IsHazeBody(double meanRadius) =>
         Math.Abs(meanRadius - 1188300.0) < 5000.0      // Pluto
+        || Math.Abs(meanRadius - 1353400.0) < 5000.0   // Triton
         || Math.Abs(meanRadius - 2575500.0) < 5000.0;  // Titan
 
     /// <summary>Elapsed simulation seconds for the haze clock, or null without a clock. Not
     /// wrapped: wrapping made the haze jump once per period. A float carries the raw seconds
     /// smoothly for any realistic save, and the 1000 s offset keeps it above the shader's 0.5
     /// "injected?" threshold at the very start of a game.</summary>
-    public static float? HazeClockSeconds()
+    public static float? HazeClockSeconds() => HazeClock() is double seconds ? (float)(seconds + 1000.0) : null;
+
+    /// <summary>Elapsed simulation seconds, in full precision and without the offset, or null
+    /// without a clock.</summary>
+    public static double? HazeClock()
     {
         object? simTime = SimClock()?.Invoke(null, null);
         if (simTime == null) return null;
         _simTimeMinutes ??= simTime.GetType().GetProperty("Minutes");
         if (_simTimeMinutes?.GetValue(simTime) is not double minutes) return null;
-        return (float)(minutes * 60.0 + 1000.0);
+        return minutes * 60.0;
     }
 
     /// <summary>atmoRef.Visual.Ozone.Extent, a DistanceReference, or null if the chain moved.</summary>
@@ -335,7 +534,7 @@ internal static class Patches
 
     /// <summary>Sets a DistanceReference to a value in metres (what InMeters() returns) and
     /// returns what it held, for the postfix to restore. Null if the reference changed shape.</summary>
-    public static object? SetDistanceMetres(object distance, double metres)
+    public static DistanceSwap? SetDistanceMetres(object distance, double metres)
     {
         _distanceValue ??= AccessTools.Field(distance.GetType(), "_value");
         if (_distanceValue?.GetValue(distance) is not double held) return null;
@@ -343,7 +542,7 @@ internal static class Patches
         return new DistanceSwap(distance, held);
     }
 
-    private sealed record DistanceSwap(object Reference, double Metres);
+    public sealed record DistanceSwap(object Reference, double Metres);
 
     private static object? Member(ref MemberInfo? cached, object owner, string name)
     {
