@@ -8,8 +8,6 @@ No game files are modified: the mod loads patched copies of the game's shaders a
 
 [Borea](https://github.com/KSAModding/content-index/blob/main/listings/RealAtmospheres.toml)
 
-[SpaceDock](https://spacedock.info/mod/4565/Real%20Atmospheres)
-
 [GitHub](https://github.com/Brimfyr/RealAtmospheres/)
 
 ## Features

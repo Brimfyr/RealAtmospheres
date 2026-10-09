@@ -38,7 +38,7 @@ No game files are modified: the mod loads patched copies of the game's shaders a
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="earth-low.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2102\[/ATTACH]
 
 \[/SPOILER]
 
@@ -54,11 +54,11 @@ No game files are modified: the mod loads patched copies of the game's shaders a
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="mars-orbit.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2104\[/ATTACH]
 
-\[ATTACH type="full" alt="mars-surface.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2106\[/ATTACH]
 
-\[ATTACH type="full" alt="mars-sunset.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2105\[/ATTACH]
 
 \[/SPOILER]
 
@@ -78,9 +78,9 @@ No game files are modified: the mod loads patched copies of the game's shaders a
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="venus-orbit.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2115\[/ATTACH]
 
-\[ATTACH type="full" alt="venus-surface.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2116\[/ATTACH]
 
 \[/SPOILER]
 
@@ -114,7 +114,7 @@ No game files are modified: the mod loads patched copies of the game's shaders a
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="jupiter-low.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2103\[/ATTACH]
 
 \[/SPOILER]
 
@@ -130,7 +130,7 @@ No game files are modified: the mod loads patched copies of the game's shaders a
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="saturn-low.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2109\[/ATTACH]
 
 \[/SPOILER]
 
@@ -150,9 +150,9 @@ No game files are modified: the mod loads patched copies of the game's shaders a
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="uranus-low.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2114\[/ATTACH]
 
-\[ATTACH type="full" alt="neptune-low.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2107\[/ATTACH]
 
 \[/SPOILER]
 
@@ -170,11 +170,11 @@ No game files are modified: the mod loads patched copies of the game's shaders a
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="titan-orbit.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2111\[/ATTACH]
 
-\[ATTACH type="full" alt="titan-terminator.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2112\[/ATTACH]
 
-\[ATTACH type="full" alt="titan-hazes.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2110\[/ATTACH]
 
 \[/SPOILER]
 
@@ -196,9 +196,9 @@ No game files are modified: the mod loads patched copies of the game's shaders a
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="triton-orbit.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2108\[/ATTACH]
 
-\[ATTACH type="full" alt="pluto-backlit.jpg"]ID\[/ATTACH]
+\[ATTACH type="full"]2113\[/ATTACH]
 
 \[/SPOILER]
 
@@ -279,3 +279,4 @@ To uninstall, delete \[ICODE]mods\\RealAtmospheres\[/ICODE] and \[ICODE]mods\\\_
 \[/LIST]
 
 The code is MIT. Because of the Uranus map, the release as a whole is for non-commercial use. \[URL=https://github.com/Brimfyr/RealAtmospheres/blob/main/CREDITS.md]CREDITS.md\[/URL] gives the source and terms of every shipped file.
+
