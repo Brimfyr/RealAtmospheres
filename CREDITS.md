@@ -51,6 +51,8 @@ more than that map.
 
 The flight atmospheres (`AtmosphereTables.Generated.cs`, from `make_flight_atmospheres.py`) are built from public data: the NASA Planetary Data System Atmospheres Node (Huygens HASI, Galileo probe ASI, Mars Pathfinder ASI/MET, Phoenix ASE, Voyager 2 Triton radio occultation), the U.S. Standard Atmosphere 1976, the Venus International Reference Atmosphere (Seiff et al. 1985), and published temperature profiles (Lindal et al. 1985, 1987, 1992; Orton et al. 2014; New Horizons, Hinson et al. 2017).
 
+Mars's dust scatters as Mie theory gives for feldspar and hematite dust in a bimodal log-normal size distribution, following S. Schneegans, T. Meyran, I. Ginkel, G. Zachmann and A. Gerndt, "Physically Based Real-Time Rendering of Atmospheres using Mie Theory", Computer Graphics Forum 43(2), 2024 (doi:10.1111/cgf.15010), computed with the BHMIE code of Bohren & Huffman (1983).
+
 Titan's haze colours use the haze's measured spectrum (Tomasko et al. 2008) and Titan's full-disc albedo (Karkoschka 1994, 1998; PDS Atmospheres Node volume gbat_0001, doi:10.17189/2bp8-k793).
 
 Pluto's haze follows New Horizons' measurements: its extinction against altitude from the Alice ultraviolet solar occultation (Young et al. 2018), its brightness at four phase angles and its colour from LORRI and MVIC (Cheng et al. 2017), checked against its optical depth (Gladstone et al. 2016).

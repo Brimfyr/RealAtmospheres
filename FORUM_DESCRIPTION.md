@@ -1,8 +1,8 @@
 \[HEADING=1]Real Atmospheres\[/HEADING]
 
-Atmospheres, hazes and clouds for Kitten Space Agency's Solar System, derived from each body's composition and particle optics. A \[URL=https://github.com/StarMapLoader/StarMap]StarMap\[/URL] mod.
+Atmospheres, hazes and clouds for Kitten Space Agency's Solar System, derived from each body's composition and particle optics, with flight atmospheres from measured profiles. A \[URL=https://github.com/StarMapLoader/StarMap]StarMap\[/URL] mod.
 
-No game files are modified. At launch the mod builds patched copies of the game's shaders and system XML and loads those instead. If a game update changes a patched part of the XML, that patch is skipped. A game update that changes the atmosphere shaders can stop them compiling, so use a release built for your KSA version.
+No game files are modified: the mod loads patched copies of the game's shaders and system data at launch. Use the release built for your KSA version.
 
 \[HEADING=2]Download\[/HEADING]
 
@@ -14,33 +14,63 @@ No game files are modified. At launch the mod builds patched copies of the game'
 
 \[HEADING=2]Features\[/HEADING]
 
-\[HEADING=3]Mars\[/HEADING]
+\[HEADING=3]Clouds\[/HEADING]
+
+\[LIST]
+
+\[\*]Volumetric clouds stay in view from much higher up before the 2D layer takes over
+
+\[\*]Extended cloud self-shadowing
+
+\[/LIST]
+
+\[HEADING=3]Flight atmospheres\[/HEADING]
+
+\[LIST]
+
+\[\*]Drag and engine back-pressure follow measured density and pressure profiles on Earth, Venus, Mars, Titan, Jupiter, Saturn, Uranus, Neptune, Triton and Pluto
+
+\[\*]Each atmosphere ends at its real height
+
+\[/LIST]
+
+\[HEADING=3]Earth\[/HEADING]
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="mars-orbit.jpg"]1979\[/ATTACH]
-
-\[ATTACH type="full" alt="mars-north-pole.jpg"]1980\[/ATTACH]
-
-\[ATTACH type="full" alt="mars-surface-dust.jpg"]1981\[/ATTACH]
-
-\[ATTACH type="full" alt="mars-clouds.jpg"]1982\[/ATTACH]
-
-\[ATTACH type="full" alt="mars-sunset.jpg"]1983\[/ATTACH]
+\[ATTACH type="full" alt="earth-low.jpg"]ID\[/ATTACH]
 
 \[/SPOILER]
 
 \[LIST]
 
-\[\*]Rayleigh scattering from a 95% CO₂ atmosphere at 6.1 mbar
+\[\*]Gas density from the US Standard Atmosphere 1976
 
-\[\*]Dust scattering from Mie theory, with a 9 km scale height
+\[\*]Ozone layer shaped after the same standard
 
-\[\*]Exact Mie phase function for Martian dust, giving the blue sun halo and blue sunsets
+\[/LIST]
 
-\[\*]Double-exponential dust density profile
+\[HEADING=3]Mars\[/HEADING]
 
-\[\*]Water-ice cirrus at 22–29 km, in 2D and volumetric
+\[SPOILER="Show images"]
+
+\[ATTACH type="full" alt="mars-orbit.jpg"]ID\[/ATTACH]
+
+\[ATTACH type="full" alt="mars-surface.jpg"]ID\[/ATTACH]
+
+\[ATTACH type="full" alt="mars-sunset.jpg"]ID\[/ATTACH]
+
+\[/SPOILER]
+
+\[LIST]
+
+\[\*]CO₂ Rayleigh scattering, with density from Pathfinder and Phoenix
+
+\[\*]Dust scattering from Mie theory, giving the blue sun halo and blue sunsets
+
+\[\*]Dust that thickens into the basins
+
+\[\*]Water-ice cirrus at 22–29 km
 
 \[/LIST]
 
@@ -48,17 +78,35 @@ No game files are modified. At launch the mod builds patched copies of the game'
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="venus-orbit.jpg"]1984\[/ATTACH]
+\[ATTACH type="full" alt="venus-orbit.jpg"]ID\[/ATTACH]
 
-\[ATTACH type="full" alt="venus-surface.jpg"]1985\[/ATTACH]
+\[ATTACH type="full" alt="venus-surface.jpg"]ID\[/ATTACH]
 
 \[/SPOILER]
 
 \[LIST]
 
-\[\*]Dense CO₂ Rayleigh scattering, at 53× Earth's surface density
+\[\*]Dense CO₂ atmosphere, with density from the Venus International Reference Atmosphere
 
-\[\*]Blue-absorbing haze below the clouds
+\[\*]A single solid cloud deck at 48–72 km, in Venus's measured pale cream
+
+\[\*]Opaque clouds from orbit, with subtle darker markings
+
+\[\*]Clouds that circle the planet in about four days
+
+\[\*]Blue-absorbing haze that thickens toward the cloud base
+
+\[/LIST]
+
+\[HEADING=3]The giants\[/HEADING]
+
+\[LIST]
+
+\[\*]H₂/He Rayleigh scattering at its real strength, from each planet's composition and measured gas density
+
+\[\*]Volumetric cloud decks that keep their brightness from close up to orbit
+
+\[\*]Cloud maps that flow with each planet's winds
 
 \[/LIST]
 
@@ -66,15 +114,15 @@ No game files are modified. At launch the mod builds patched copies of the game'
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="jupiter-low.jpg"]1986\[/ATTACH]
+\[ATTACH type="full" alt="jupiter-low.jpg"]ID\[/ATTACH]
 
 \[/SPOILER]
 
 \[LIST]
 
-\[\*]H₂/He Rayleigh scattering, with a 25 km scale height
+\[\*]Bright zones high and dark belts low in the volumetric clouds, with deep vortices
 
-\[\*]Cloud decks at real altitudes: lower deck −1 to 12 km, main deck from 15 km, storms up to 96 km
+\[\*]A thin stratospheric haze
 
 \[/LIST]
 
@@ -82,37 +130,39 @@ No game files are modified. At launch the mod builds patched copies of the game'
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="saturn-low.jpg"]2020\[/ATTACH]
+\[ATTACH type="full" alt="saturn-low.jpg"]ID\[/ATTACH]
 
 \[/SPOILER]
 
 \[LIST]
 
-\[\*]Rayleigh scattering above a thin haze, with methane colouring and a 52 km scale height
-
 \[\*]Volumetric clouds, with cloud height following the planet's map
 
-\[\*]Colour map at 2048 px per cube face (stock: 1024)
+\[\*]A thin stratospheric haze
+
+\[\*]Methane colouring
+
+\[\*]2048 px colour map
 
 \[/LIST]
 
-\[HEADING=3]Uranus \& Neptune\[/HEADING]
+\[HEADING=3]Uranus and Neptune\[/HEADING]
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="uranus-low.jpg"]1988\[/ATTACH]
+\[ATTACH type="full" alt="uranus-low.jpg"]ID\[/ATTACH]
 
-\[ATTACH type="full" alt="neptune-low.jpg"]1989\[/ATTACH]
+\[ATTACH type="full" alt="neptune-low.jpg"]ID\[/ATTACH]
 
 \[/SPOILER]
 
 \[LIST]
 
-\[\*]Methane absorption, with a thin Rayleigh limb and haze
+\[\*]Volumetric clouds, with cloud height following each planet's map
 
-\[\*]Volumetric clouds, with cloud height following the planet's map
+\[\*]Methane absorption and a thin haze
 
-\[\*]Colour maps at 2048 px per cube face (stock: 512)
+\[\*]2048 px colour maps
 
 \[/LIST]
 
@@ -120,43 +170,71 @@ No game files are modified. At launch the mod builds patched copies of the game'
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="titan-orbit.jpg"]1990\[/ATTACH]
+\[ATTACH type="full" alt="titan-orbit.jpg"]ID\[/ATTACH]
 
-\[ATTACH type="full" alt="titan-terminator.jpg"]1991\[/ATTACH]
+\[ATTACH type="full" alt="titan-terminator.jpg"]ID\[/ATTACH]
 
-\[ATTACH type="full" alt="titan-hazes.jpg"]1992\[/ATTACH]
+\[ATTACH type="full" alt="titan-hazes.jpg"]ID\[/ATTACH]
 
 \[/SPOILER]
 
 \[LIST]
 
-\[\*]Stratified upper haze, animated with simulation time
+\[\*]Golden haze from Huygens and Cassini measurements
 
-\[\*]Detached haze layers at 230 and 290 km
+\[\*]Haze-to-gas transition from Titan's measured density curve
+
+\[\*]Disc colour matched to Titan's measured spectrum
+
+\[\*]Stratified upper haze with detached layers, animated with simulation time
+
+\[\*]White methane clouds in two polar caps
 
 \[/LIST]
 
-\[HEADING=3]Triton \& Pluto\[/HEADING]
+\[HEADING=3]Pluto and Triton\[/HEADING]
 
 \[SPOILER="Show images"]
 
-\[ATTACH type="full" alt="triton-orbit.jpg"]1993\[/ATTACH]
+\[ATTACH type="full" alt="triton-orbit.jpg"]ID\[/ATTACH]
 
-\[ATTACH type="full" alt="pluto-hazes.jpg"]1994\[/ATTACH]
+\[ATTACH type="full" alt="pluto-backlit.jpg"]ID\[/ATTACH]
 
 \[/SPOILER]
 
 \[LIST]
 
-\[\*]N₂ Rayleigh scattering from measured surface pressure and temperature
+\[\*]N₂ atmospheres and hazes from New Horizons and Voyager measurements
 
-\[\*]Forward-scattering haze, visible as a ring when looking toward the Sun
+\[\*]Hazes that show as a bright ring when lit from behind
 
 \[\*]Stratified haze bands, animated with simulation time
 
-\[\*]Nitrogen-ice clouds on Triton at 4–6.5 km
+\[\*]Nitrogen-ice clouds on Triton
 
 \[/LIST]
+
+\[HEADING=3]Terrain and moons\[/HEADING]
+
+\[LIST]
+
+\[\*]A softer terminator on rugged ground with little or no air
+
+\[\*]A planet keeps its full detail while a small moon passes the camera
+
+\[/LIST]
+
+\[HEADING=2]Settings\[/HEADING]
+
+With \[URL=https://github.com/MrJeranimo/ModMenu]ModMenu\[/URL] installed, the game's Mods menu has a Real Atmospheres page:
+
+\[LIST]
+
+\[\*]\[B]Procedural haze bands\[/B]: the animated bands in the haze of Pluto, Triton and Titan. Unticked, their haze is smooth.
+
+\[/LIST]
+
+Settings are saved in \[ICODE]RealAtmospheres\\settings.toml\[/ICODE] in the game's documents folder.
 
 \[HEADING=2]Installation\[/HEADING]
 
@@ -170,7 +248,7 @@ Requires \[URL=https://github.com/StarMapLoader/StarMap]StarMap\[/URL]. Each rel
 
 \[\*]Install StarMap and run the game once through \[ICODE]StarMap.Loader.exe\[/ICODE].
 
-\[\*]Extract the release into \[ICODE]Documents\\My Games\\Kitten Space Agency\\mods\[/ICODE], giving \[ICODE]mods\\RealAtmospheres\\RealAtmospheres.dll\[/ICODE].
+\[\*]Extract the release into \[ICODE]Documents\\My Games\\Kitten Space Agency\\mods\\\[/ICODE], giving \[ICODE]mods\\RealAtmospheres\\RealAtmospheres.dll\[/ICODE].
 
 \[\*]Launch the game once and close it. KSA adds new mods to \[ICODE]manifest.toml\[/ICODE] disabled: set this mod's entry to \[ICODE]enabled = true\[/ICODE].
 
@@ -178,11 +256,11 @@ Requires \[URL=https://github.com/StarMapLoader/StarMap]StarMap\[/URL]. Each rel
 
 \[/LIST]
 
-To uninstall, delete \[ICODE]mods\\RealAtmospheres\[/ICODE] and \[ICODE]mods\_RealSharedShadow\[/ICODE].
+To uninstall, delete \[ICODE]mods\\RealAtmospheres\[/ICODE] and \[ICODE]mods\\\_RealSharedShadow\[/ICODE].
 
 \[HEADING=2]Building\[/HEADING]
 
-\[ICODE]deploy.ps1\[/ICODE] builds the mod and installs it into your mods folder. \[ICODE]package.ps1 -Version x.y.z -GameBuild vYYYY.M.D.NNNN\[/ICODE] builds a release archive in \[ICODE]dist\[/ICODE]. Set \[ICODE]StarMapDir\[/ICODE] to your StarMap folder.
+\[ICODE]deploy.ps1\[/ICODE] builds the mod and installs it into your mods folder. \[ICODE]package.ps1 -Version x.y.z -GameBuild vYYYY.M.D.NNNN\[/ICODE] builds a release archive in \[ICODE]dist\\\[/ICODE]. Set \[ICODE]StarMapDir\[/ICODE] to your StarMap folder.
 
 \[HEADING=2]Credits\[/HEADING]
 
@@ -194,9 +272,10 @@ To uninstall, delete \[ICODE]mods\\RealAtmospheres\[/ICODE] and \[ICODE]mods\_Re
 
 \[\*]Neptune map by Askaniy, \[URL=https://creativecommons.org/licenses/by/3.0/]CC BY 3.0\[/URL], modified.
 
-\[\*]Mars cirrus, Titan haze and Triton cloud masks: \[I]Produced in part with SpaceEngine PRO © Cosmographic Software LLC.\[/I]
+\[\*]Mars cirrus, Titan haze and cloud, and Triton cloud masks: \[I]Produced in part with SpaceEngine PRO © Cosmographic Software LLC.\[/I]
+
+\[\*]Mars dust scattering after S. Schneegans, T. Meyran, I. Ginkel, G. Zachmann and A. Gerndt, "Physically Based Real-Time Rendering of Atmospheres using Mie Theory", Computer Graphics Forum 43(2), 2024.
 
 \[/LIST]
 
 The code is MIT. Because of the Uranus map, the release as a whole is for non-commercial use. \[URL=https://github.com/Brimfyr/RealAtmospheres/blob/main/CREDITS.md]CREDITS.md\[/URL] gives the source and terms of every shipped file.
-

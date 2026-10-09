@@ -12,6 +12,10 @@ StarMapConfig.json
 assets/
 Mars_Upper_Clouds.png
 
+# Screenshot sources: the JPGs made from them are what the repository keeps.
+content/*.png
+!content/icon.png
+
 # make_flight_atmospheres.py download cache (NASA PDS profiles)
 .cache/
 

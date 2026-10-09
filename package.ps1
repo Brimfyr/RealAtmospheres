@@ -1,13 +1,13 @@
 # Build Real Atmospheres and produce an installable zip for players.
 #
-#   .\package.ps1                         # version 1.0.1, game build read from your settings.toml
-#   .\package.ps1 -Version 1.1.0 -GameBuild v2026.9.7.5402
+#   .\package.ps1                         # version 1.1.0, game build read from your settings.toml
+#   .\package.ps1 -Version 1.1.0 -GameBuild v2026.10.10.5554
 #
 # Output: dist\RealAtmospheres-v<Version>-ksa<GameBuild>.zip (+ .sha256). The zip's root is a
 # RealAtmospheres\ folder, because KSA uses the folder name as the mod id. Ships exactly the files in
 # release-files.txt; StarMap.API/0Harmony are NOT included (the StarMap launcher provides them).
 param(
-    [string]$Version = "1.0.4",
+    [string]$Version = "1.1.0",
     [string]$GameBuild = ""
 )
 $ErrorActionPreference = "Stop"
