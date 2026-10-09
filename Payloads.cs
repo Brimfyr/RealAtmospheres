@@ -198,6 +198,31 @@ $"""
     // brightness. ShadowBuilder.PatchVenusClouds swaps both, inside Venus's body only.
     public const string VenusDeckMarker = "Real Atmospheres: Venus cloud deck";
 
+    // ---------------- Astronomicals.xml: Venus's clouds go round with its superrotation ----------------
+    // A cloud layer turns about its body's axis on top of the ground's own turning, at <RotationSpeed>: metres a
+    // second at the layer's base. The engine turns the layer by -Z / base radius x time about the body's +Z, so a
+    // negative Z carries the clouds the way a body ordinarily spins, as Earth's -20 and Mars's -40 do.
+    //
+    // The stock Venus has Earth's -20. But Venus spins backwards (IsRetrograde: once in 243 days), and its clouds
+    // go round WITH it, sixty times faster: about four days a lap at the cloud tops, winds of some 100 m/s. So the
+    // stock clouds crept the wrong way round, once in 24 days against the stars (user, 2026-10-09: "I seem to
+    // remember seeing it rotate with the surface's actual rotation, which would make it far too slow, when it
+    // should take 96-100 hours"). The layer now laps once in VenusCloudHours against the stars, the way Venus
+    // spins: with the stock spin, 106.8 m/s at the deck's base, the other way round from the stock value.
+    public const string VenusTurnMarker = "Real Atmospheres: Venus's clouds go round with its superrotation";
+    public const string VenusStockTurn = "<RotationSpeed X=\"0\" Y=\"0\" Z=\"-20\" />";
+    public const double VenusCloudHours = 98.0;
+
+    /// <summary>The RotationSpeed Z, in m/s at the layer's base, that takes a cloud layer round once in
+    /// <paramref name="cloudHours"/> against the stars, the same way as its body spins.</summary>
+    public static double CloudTurnSpeed(double cloudHours, double spinDays, bool retrograde, double baseRadiusM)
+    {
+        double clouds = 2.0 * Math.PI / (cloudHours * 3600.0);
+        double ground = spinDays > 0.0 ? 2.0 * Math.PI / (spinDays * 86400.0) : 0.0;
+        // about the body's +Z a body's ordinary spin is positive, and the engine's Z is the other way round
+        return (retrograde ? 1.0 : -1.0) * (clouds - ground) * baseRadiusM;
+    }
+
     public const string VenusStockDetailTexture = "<Texture Id=\"CloudDetail2048\"/>";
     public const string VenusDetailTexture =
         """<Texture Id="VenusCloudDetail" Path="{ASSETS}\VenusCloudDetail.png" Category="Terrain"/>""";

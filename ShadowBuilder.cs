@@ -141,6 +141,7 @@ internal static class ShadowBuilder
         xml = PatchAtmosphereValues(xml, Payloads.AtmospherePairs, "Mars");
         xml = PatchAtmosphereValues(xml, Payloads.VenusPairs, "Venus");
         xml = PatchVenusClouds(xml, assetsDir);
+        xml = PatchVenusCloudTurn(xml);
         xml = PatchAtmosphereValues(xml, Payloads.JupiterPairs, "Jupiter");
         xml = PatchAtmosphereValues(xml, Payloads.SaturnPairs, "Saturn");
         xml = PatchAtmosphereValues(xml, Payloads.UranusPairs, "Uranus");
@@ -428,6 +429,51 @@ internal static class ShadowBuilder
             venus = venus.Replace(Payloads.VenusStockDetailTexture, Payloads.VenusDetailTexture.Replace("{ASSETS}", assetsDir));
         Log("Venus cloud deck: one solid deck 48-72 km, stock variety in short crowns");
         return s[..body] + venus + s[end..];
+    }
+
+    /// <summary>Venus's cloud layer taken round with its superrotation (Payloads.VenusTurnMarker): its stock
+    /// RotationSpeed swapped, inside Venus's body only, for the speed that laps once in Payloads.VenusCloudHours
+    /// against the stars, from the spin, the radius and the cloud base the file itself has.</summary>
+    private static string PatchVenusCloudTurn(string s)
+    {
+        if (s.Contains(Payloads.VenusTurnMarker))
+            return s; // already applied
+
+        int body = s.IndexOf("<AtmosphericBody Id=\"Venus\"", StringComparison.Ordinal);
+        int end = body < 0 ? -1 : s.IndexOf("</AtmosphericBody>", body, StringComparison.Ordinal);
+        if (end < 0) { Log("WARN: Venus not found, its clouds keep the game's drift"); return s; }
+        string venus = s[body..end];
+        if (CountOf(venus, Payloads.VenusStockTurn) != 1)
+        {
+            Log("WARN: Venus's stock cloud rotation not found, its clouds keep the game's drift");
+            return s;
+        }
+
+        double Number(string pattern, double otherwise)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(venus, pattern);
+            return m.Success && double.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float,
+                                                System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : otherwise;
+        }
+        double spinDays = Number("<SiderealPeriod Days=\"([0-9.eE+-]+)\"", 243.018484);
+        bool retrograde = !venus.Contains("<IsRetrograde Value=\"false\"") && venus.Contains("<IsRetrograde");
+        double radiusM = Number("<MeanRadius Km=\"([0-9.eE+-]+)\"", 6051.8) * 1000.0;
+        // the layer's base: the lowest of its cloud types, as the engine takes it
+        double baseM = double.PositiveInfinity;
+        foreach (System.Text.RegularExpressions.Match m in
+                 System.Text.RegularExpressions.Regex.Matches(venus, "<StartAltitude M=\"([0-9.eE+-]+)\""))
+            if (double.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double start))
+                baseM = Math.Min(baseM, start);
+        if (double.IsInfinity(baseM)) baseM = 48000.0;
+
+        double speed = Payloads.CloudTurnSpeed(Payloads.VenusCloudHours, spinDays, retrograde, radiusM + baseM);
+        string turned = "<RotationSpeed X=\"0\" Y=\"0\" Z=\""
+                        + speed.ToString("0.0##", System.Globalization.CultureInfo.InvariantCulture)
+                        + "\" /> <!-- " + Payloads.VenusTurnMarker + " -->";
+        Log(FormattableString.Invariant(
+            $"Venus's clouds go round once in {Payloads.VenusCloudHours:0} h, the way it spins ({speed:0.0} m/s at the deck's base)"));
+        return s[..body] + venus.Replace(Payloads.VenusStockTurn, turned) + s[end..];
     }
 
     private static string PatchCirrusLayer(string s, string assetsDir)
